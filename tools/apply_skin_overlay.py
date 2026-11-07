@@ -121,9 +121,9 @@ def apply_app_background_overlay(skin_root: Path) -> None:
     value = (
         '        <value condition="String.IsEqual(Container.ListItem.Property(KodiHome.AppTile),true) '
         '+ !String.IsEmpty(Container.ListItem.Art(fanart))">'
-        '$INFO[Container.ListItem.Art(fanart)]</value>\\n'
+        '$INFO[Container.ListItem.Art(fanart)]</value>\n'
     )
-    updated = source.replace(marker, marker + "\\n" + value, 1)
+    updated = source.replace(marker, marker + "\n" + value, 1)
     ET.fromstring(updated)
     images_file.write_text(updated, encoding="utf-8")
 

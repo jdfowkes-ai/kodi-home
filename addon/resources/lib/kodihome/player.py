@@ -119,6 +119,8 @@ class KodiHomePlayer(xbmc.Player):
         }
         try:
             response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+            if "error" in response:
+                raise RuntimeError(response["error"])
             episodes = response.get("result", {}).get("episodes", [])
             current_order = (
                 int(completed_item.get("season") or 0),

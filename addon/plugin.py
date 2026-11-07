@@ -493,6 +493,27 @@ def _choose_app_group():
         _app_groups()
 
 
+def _android_app_label(package_name):
+    known_apps = {
+        "com.netflix.ninja": "Netflix",
+        "com.disney.disneyplus": "Disney+",
+        "com.amazon.amazonvideo.livingroom": "Prime Video",
+        "com.google.android.youtube.tv": "YouTube",
+        "com.google.android.youtube.tvkids": "YouTube Kids",
+        "com.apple.atve.androidtv.appletv": "Apple TV",
+        "com.bbc.iplayer": "BBC iPlayer",
+        "com.itv.itvx": "ITVX",
+        "com.channel4.android": "Channel 4",
+        "com.paramountplus": "Paramount+",
+    }
+    if package_name in known_apps:
+        return known_apps[package_name]
+    parts = [part for part in package_name.split(".") if part not in (
+        "com", "org", "net", "android", "tv", "app", "mobile", "client"
+    )]
+    return " ".join(part[:1].upper() + part[1:] for part in parts) or package_name
+
+
 def _installed_app_picker(group_id):
     group = STORE.get_app_group(group_id)
     if not group:
@@ -500,16 +521,10 @@ def _installed_app_picker(group_id):
         _app_groups()
         return
     try:
-        result = _rpc(
-            "Files.GetDirectory",
-            {
-                "directory": ANDROID_APPS_PATH,
-                "media": "files",
-                "properties": ["thumbnail"],
-                "sort": {"method": "label", "order": "ascending"},
-            },
-        )
-        entries = result.get("files", [])
+        # Files.GetDirectory is rejected by Kodi's JSON-RPC remote-path
+        # security check for androidapp:// URLs. Use Kodi's local VFS API.
+        directories, files = xbmcvfs.listdir(ANDROID_APPS_PATH)
+        package_names = sorted(set(directories + files), key=str.casefold)
     except Exception as exc:
         xbmc.log("Kodi Home: could not list Android apps: %s" % exc, xbmc.LOGWARNING)
         _notify("Could not read the installed Android apps")
@@ -517,18 +532,16 @@ def _installed_app_picker(group_id):
         return
 
     registered = {app["package_name"] for app in STORE.list_apps(group_id)}
-    for entry in entries:
-        app_path = str(entry.get("file") or "")
-        if not app_path.startswith(ANDROID_APPS_PREFIX):
-            continue
-        package_name = app_path[len(ANDROID_APPS_PREFIX):].strip("/")
-        if not package_name or package_name.endswith(".png"):
+    for package_name in package_names:
+        package_name = str(package_name).strip("/")
+        if not package_name or package_name.endswith((".png", ".apk")):
             continue
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):
             continue
 
-        label = str(entry.get("label") or entry.get("title") or package_name)
-        icon_path = str(entry.get("thumbnail") or (app_path + ".png"))
+        label = _android_app_label(package_name)
+        app_path = ANDROID_APPS_PREFIX + package_name
+        icon_path = app_path + ".png"
         added = package_name in registered
         display_label = label + ("  ✓" if added else "")
         item = xbmcgui.ListItem(label=display_label)

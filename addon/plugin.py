@@ -347,7 +347,7 @@ def _app_groups():
         ]
         _app_folder(
             label,
-            _url(action="app_group", group_name=group["name"]),
+            _url(action="app_group", group_id=group["group_id"]),
             context,
         )
     _finish()

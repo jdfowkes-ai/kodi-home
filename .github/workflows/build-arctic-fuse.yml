@@ -1,0 +1,55 @@
+name: Build Arctic Fuse Kodi Home Skin
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "skin/**"
+      - "tools/apply_skin_overlay.py"
+      - ".github/workflows/build-arctic-fuse.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Kodi Home
+        uses: actions/checkout@v4
+
+      - name: Check out the pinned Arctic Fuse 3.4.18 source
+        uses: actions/checkout@v4
+        with:
+          repository: jurialmunkey/skin.arctic.fuse.3
+          ref: 4199a3fb1f0f37e4803d94d5238361596298a715
+          path: upstream/skin.arctic.fuse.3
+
+      - name: Apply the Kodi Home overlay
+        run: python3 tools/apply_skin_overlay.py upstream/skin.arctic.fuse.3
+
+      - name: Package installable Kodi skin
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          addon_id = "skin.arctic.fuse.3.kodihome"
+          source = Path("upstream/skin.arctic.fuse.3")
+          output = Path("dist") / f"{addon_id}-0.1.0.zip"
+          output.parent.mkdir(parents=True, exist_ok=True)
+
+          with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+              for path in sorted(source.rglob("*")):
+                  if path.is_file() and ".git" not in path.parts:
+                      archive.write(path, Path(addon_id) / path.relative_to(source))
+
+          print(f"Created {output}")
+          PY
+
+      - name: Upload installable skin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: skin.arctic.fuse.3.kodihome-0.1.0
+          path: dist/skin.arctic.fuse.3.kodihome-0.1.0.zip
+          if-no-files-found: error

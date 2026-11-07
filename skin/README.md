@@ -10,6 +10,6 @@ These files are a focused overlay for the upstream Arctic Fuse 3.4.18 source. Th
 
 The existing info panel places metadata after the synopsis. Its native TMDb Helper properties provide the rating values and artwork; Kodi Home playback tracking does not depend on TMDb Helper.
 
-The full skin must be assembled from the matching upstream source, this overlay, and the included badge assets before packaging. Device installation and visual verification are still outstanding.
+The GitHub Actions workflow checks out a pinned upstream source commit, applies this overlay and the included badge assets, changes the add-on ID to `skin.arctic.fuse.3.kodihome`, and packages a separate installable skin. The stock `skin.arctic.fuse.3` remains untouched. Device installation and visual verification are still outstanding.
 
 Source baseline: [jurialmunkey/skin.arctic.fuse.3, omega](https://github.com/jurialmunkey/skin.arctic.fuse.3/tree/omega). Upstream skin source is licensed CC BY-NC-SA 4.0. Preserve upstream attribution and license when distributing a derived skin.

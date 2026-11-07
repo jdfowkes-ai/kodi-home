@@ -4,7 +4,7 @@
 
 ### Skin layer (`skin/`)
 
-Build a focused Arctic Fuse 3 based interface for the Apps and Library hubs and the media information panel. The user confirmed the Shield baseline is Arctic Fuse 3.4.18. The connected skin.arctic.fuse.3 omega source declares 3.4.48, so locate and base any skin-specific package on the exact 3.4.18 source before editing or packaging. Keep custom changes isolated and traceable instead of carrying forward the broken experimental branches.
+Build a focused Arctic Fuse 3 based interface for the Apps and Library hubs and the media information panel. The user confirmed the Shield baseline is Arctic Fuse 3.4.18, and the upstream `jurialmunkey/skin.arctic.fuse.3` omega branch currently declares 3.4.18. Use that source as the implementation baseline; the connected `jdfowkes-ai` fork's omega branch declares 3.4.48. Keep custom changes isolated and traceable instead of carrying forward the broken experimental branches.
 
 ### Kodi Home add-on (`addon/`)
 

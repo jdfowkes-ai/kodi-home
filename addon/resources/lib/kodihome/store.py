@@ -294,6 +294,28 @@ class LocalStore:
                 ),
             )
 
+    def refresh_watchlist_metadata(self, item):
+        """Refresh library metadata while preserving the original watchlist date."""
+        metadata_json = json.dumps(item.get("metadata") or {}, sort_keys=True)
+        with self._connection() as connection:
+            connection.execute(
+                """
+                UPDATE watchlist_items
+                SET title = ?,
+                    year = COALESCE(?, year),
+                    release_date = COALESCE(?, release_date),
+                    metadata_json = ?
+                WHERE item_key = ?
+                """,
+                (
+                    item["title"],
+                    item.get("year"),
+                    item.get("release_date"),
+                    metadata_json,
+                    item["item_key"],
+                ),
+            )
+
     def remove_watchlist_item(self, item_key):
         """Remove one entry explicitly by its stable local key."""
         with self._connection() as connection:

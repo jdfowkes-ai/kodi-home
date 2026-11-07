@@ -95,6 +95,34 @@ class LocalStore:
 
                 CREATE INDEX IF NOT EXISTS idx_watchlist_items_release
                     ON watchlist_items(release_date, added_at DESC);
+
+                CREATE TABLE IF NOT EXISTS app_groups (
+                    group_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS apps (
+                    package_name TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    icon_path TEXT NOT NULL DEFAULT '',
+                    clearlogo_path TEXT NOT NULL DEFAULT '',
+                    fanart_path TEXT NOT NULL DEFAULT '',
+                    created_at INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS app_group_members (
+                    group_id INTEGER NOT NULL,
+                    package_name TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (group_id, package_name),
+                    FOREIGN KEY (group_id) REFERENCES app_groups(group_id) ON DELETE CASCADE,
+                    FOREIGN KEY (package_name) REFERENCES apps(package_name) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_app_group_members_order
+                    ON app_group_members(group_id, sort_order);
                 """
             )
             connection.execute(
@@ -130,7 +158,13 @@ class LocalStore:
                     connection.execute(
                         "ALTER TABLE %s ADD COLUMN art_json TEXT NOT NULL DEFAULT '{}'" % table
                     )
-            connection.execute("PRAGMA user_version = 5")
+            if connection.execute("SELECT COUNT(*) FROM app_groups").fetchone()[0] == 0:
+                for sort_order, name in enumerate(("Favourites", "Kids", "Home Apps", "Gaming", "Music")):
+                    connection.execute(
+                        "INSERT OR IGNORE INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",
+                        (name, sort_order, int(time.time())),
+                    )
+            connection.execute("PRAGMA user_version = 6")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -471,6 +505,158 @@ class LocalStore:
                 (item_key,),
             ).fetchone()
         return row is not None
+
+    def list_app_groups(self):
+        """Return app groups with member counts, ordered for hub display."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT groups.group_id, groups.name, groups.sort_order,
+                       COUNT(members.package_name) AS app_count
+                FROM app_groups AS groups
+                LEFT JOIN app_group_members AS members
+                  ON members.group_id = groups.group_id
+                GROUP BY groups.group_id
+                ORDER BY groups.sort_order, groups.name COLLATE NOCASE
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_app_group(self, group_id):
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT group_id, name, sort_order FROM app_groups WHERE group_id = ?",
+                (int(group_id),),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def add_app_group(self, name):
+        """Create a user-named app group and return its ID."""
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("Group name is required")
+        with self._connection() as connection:
+            sort_order = connection.execute(
+                "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM app_groups"
+            ).fetchone()[0]
+            cursor = connection.execute(
+                "INSERT INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",
+                (name, sort_order, int(time.time())),
+            )
+            return cursor.lastrowid
+
+    def rename_app_group(self, group_id, name):
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("Group name is required")
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "UPDATE app_groups SET name = ? WHERE group_id = ?",
+                (name, int(group_id)),
+            )
+            return cursor.rowcount > 0
+
+    def remove_app_group(self, group_id):
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM app_groups WHERE group_id = ?",
+                (int(group_id),),
+            )
+            return cursor.rowcount > 0
+
+    def list_apps(self, group_id=None):
+        """Return app entries with artwork and optional group membership."""
+        with self._connection() as connection:
+            if group_id is None:
+                rows = connection.execute(
+                    """
+                    SELECT package_name, title, icon_path, clearlogo_path, fanart_path
+                    FROM apps ORDER BY title COLLATE NOCASE
+                    """
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT apps.package_name, apps.title, apps.icon_path,
+                           apps.clearlogo_path, apps.fanart_path,
+                           members.sort_order
+                    FROM apps
+                    JOIN app_group_members AS members
+                      ON members.package_name = apps.package_name
+                    WHERE members.group_id = ?
+                    ORDER BY members.sort_order, apps.title COLLATE NOCASE
+                    """,
+                    (int(group_id),),
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def add_app(self, package_name, title, icon_path="", group_id=None):
+        """Save an installed Android app and optionally add it to one group."""
+        package_name = str(package_name or "").strip()
+        title = str(title or "").strip() or package_name
+        if not package_name:
+            raise ValueError("Android package name is required")
+        icon_path = str(icon_path or "").strip()
+        with self._connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO apps (package_name, title, icon_path, created_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(package_name) DO UPDATE SET
+                    title = excluded.title,
+                    icon_path = CASE WHEN excluded.icon_path = ''
+                                     THEN apps.icon_path
+                                     ELSE excluded.icon_path END
+                """,
+                (package_name, title, icon_path, int(time.time())),
+            )
+            if group_id is not None:
+                group_id = int(group_id)
+                sort_order = connection.execute(
+                    "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM app_group_members WHERE group_id = ?",
+                    (group_id,),
+                ).fetchone()[0]
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO app_group_members
+                        (group_id, package_name, sort_order)
+                    VALUES (?, ?, ?)
+                    """,
+                    (group_id, package_name, sort_order),
+                )
+        return True
+
+    def remove_app(self, package_name, group_id=None):
+        """Remove an app from one group, or remove it from every group."""
+        with self._connection() as connection:
+            if group_id is not None:
+                cursor = connection.execute(
+                    "DELETE FROM app_group_members WHERE group_id = ? AND package_name = ?",
+                    (int(group_id), str(package_name)),
+                )
+            else:
+                cursor = connection.execute(
+                    "DELETE FROM apps WHERE package_name = ?",
+                    (str(package_name),),
+                )
+            return cursor.rowcount > 0
+
+    def update_app_artwork(self, package_name, field, path):
+        """Set a user-selected app logo or fanart path."""
+        columns = {
+            "icon": "icon_path",
+            "clearlogo": "clearlogo_path",
+            "fanart": "fanart_path",
+        }
+        column = columns.get(field)
+        if not column:
+            raise ValueError("Unsupported app artwork field")
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "UPDATE apps SET %s = ? WHERE package_name = ?" % column,
+                (str(path or ""), str(package_name)),
+            )
+            return cursor.rowcount > 0
 
     @staticmethod
     def _decode_art_rows(rows):

@@ -30,7 +30,7 @@ def repository_addon_xml():
     root = ET.Element("addon", {
         "id": "repository.kodihome",
         "name": "Kodi Home Repository",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "provider-name": "jdfowkes-ai",
     })
     requires = ET.SubElement(root, "requires")
@@ -39,10 +39,11 @@ def repository_addon_xml():
         "point": "xbmc.addon.repository",
         "name": "Kodi Home Repository",
     })
-    ET.SubElement(extension, "info", {"compressed": "false"}).text = PAGES_URL + "/addons.xml"
-    ET.SubElement(extension, "checksum").text = PAGES_URL + "/addons.xml.md5"
-    ET.SubElement(extension, "datadir", {"zip": "true"}).text = PAGES_URL + "/"
-    ET.SubElement(extension, "hashes").text = "false"
+    directory = ET.SubElement(extension, "dir")
+    ET.SubElement(directory, "info", {"compressed": "false"}).text = PAGES_URL + "/addons.xml"
+    ET.SubElement(directory, "checksum", {"verify": "md5"}).text = PAGES_URL + "/addons.xml.md5"
+    ET.SubElement(directory, "datadir").text = PAGES_URL + "/"
+    ET.SubElement(directory, "hashes").text = "false"
     metadata = ET.SubElement(root, "extension", {"point": "xbmc.addon.metadata"})
     ET.SubElement(metadata, "summary", {"lang": "en_GB"}).text = "Kodi Home add-ons"
     ET.SubElement(metadata, "description", {"lang": "en_GB"}).text = (
@@ -65,7 +66,7 @@ def build(site_dir, skin_source):
     package_addon(skin_source, skin_zip, skin_id)
 
     repo_id = "repository.kodihome"
-    repo_version = "1.0.0"
+    repo_version = "1.0.1"
     repo_root = PROJECT_ROOT / "repository" / repo_id
     repo_root.mkdir(parents=True, exist_ok=True)
     repo_xml = repository_addon_xml()

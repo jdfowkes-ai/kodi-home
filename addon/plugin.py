@@ -397,7 +397,7 @@ def _installed_app_picker(group_id):
         item.addContextMenuItems(_context([
             ("Add to %s" % group["name"], target),
         ]))
-        xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=False)
+        xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=True)
     _finish()
 
 

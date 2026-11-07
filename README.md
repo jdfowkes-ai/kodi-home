@@ -4,7 +4,9 @@ A clean rebuild of the Kodi home experience for NVIDIA Shield and Kodi Omega.
 
 ## Project status
 
-Requirements and architecture are being established. No add-on or skin package has been built or deployed.
+The first local playback service source scaffold is in `addon/`. It stores playback progress and completed history in a local SQLite database. It has not been installed or verified on the Shield.
+
+No installable add-on or skin package has been built or deployed.
 
 The current user-reported stable skin baseline is Arctic Fuse 3 version 3.4.18. Confirm the version on the Shield before preparing a device package.
 
@@ -23,4 +25,4 @@ The current user-reported stable skin baseline is Arctic Fuse 3 version 3.4.18. 
 - **Library hub:** prominent library widgets and fanart for Kodi library entries, including Umbrella `.strm` items.
 - **Local playback:** resume progress, next episodes, watched history, and editable watchlists with Released, Unreleased, and All views.
 
-See [requirements](docs/requirements.md) and [architecture](docs/architecture.md).
+See [requirements](docs/requirements.md), [architecture](docs/architecture.md), and the [add-on source](addon/README.md).

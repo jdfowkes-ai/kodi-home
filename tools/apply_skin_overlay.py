@@ -73,7 +73,7 @@ def apply_app_tile_overlay(skin_root: Path) -> None:
             <height>612</height>
             <width>612</width>
             <control type="image">
-                <texture colordiffuse="FF707070">common/white.png</texture>
+                <texture colordiffuse="D9707070">common/white.png</texture>
             </control>
             <control type="image">
                 <width>80%</width>

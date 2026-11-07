@@ -77,10 +77,12 @@ def _folder(label, target, art=None):
     xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=True)
 
 
-def _video_item(label, target, info, art=None, context=None, folder=False):
+def _video_item(label, target, info, art=None, context=None, folder=False, properties=None):
     item = xbmcgui.ListItem(label=label)
     item.setInfo("video", info)
     item.setArt(_art(art))
+    for key, value in (properties or {}).items():
+        item.setProperty(key, str(value))
     if not folder:
         item.setProperty("IsPlayable", "true")
     if context:
@@ -754,7 +756,15 @@ def _library_items(media_type):
             "genre": entry.get("genre", []),
         }
         context = [("Add to Watchlist", add_target)]
-        _video_item(label, target, info, art=entry.get("art"), context=context, folder=True)
+        _video_item(
+            label,
+            target,
+            info,
+            art=entry.get("art"),
+            context=context,
+            folder=True,
+            properties={"KodiHome.LibraryItem": "true"},
+        )
     _finish()
 
 

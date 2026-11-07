@@ -216,7 +216,7 @@ def _continue_watching():
             ("Play from beginning", _url(action="play_progress", key=row["item_key"], start=0)),
             ("Remove from Continue Watching", _url(action="remove_continue", key=row["item_key"])),
         ]
-        _video_item(label, play_url, info, context=context)
+        _video_item(label, play_url, info, art=row.get("art"), context=context)
     _finish()
 
 
@@ -240,6 +240,7 @@ def _up_next():
             label,
             _url(action="play_library", media_type="episode", db_id=row["episode_db_id"], start=0),
             info,
+            art=row.get("art"),
             context=[("Remove from Up Next", _url(action="remove_up_next", show_id=row["tvshow_db_id"]))],
         )
     _finish()
@@ -257,9 +258,9 @@ def _history():
         context = [("Remove from History", _url(action="remove_history", playback_id=row["playback_id"]))]
         if row.get("kodi_db_id"):
             target = _url(action="play_library", media_type=row["media_type"], db_id=row["kodi_db_id"], start=0)
-            _video_item(label, target, info, context=context)
+            _video_item(label, target, info, art=row.get("art"), context=context)
         else:
-            _video_item(label, row.get("file_path", ""), info, context=context)
+            _video_item(label, row.get("file_path", ""), info, art=row.get("art"), context=context)
     _finish()
 
 

@@ -1,6 +1,7 @@
 """Kodi Home local lists and Kodi-library browsing interface."""
 
 import json
+import re
 import sys
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -41,7 +42,7 @@ def _art(value):
         return {}
     return {
         key: value[key]
-        for key in ("thumb", "poster", "fanart", "landscape", "clearlogo")
+        for key in ("icon", "thumb", "poster", "fanart", "landscape", "clearlogo")
         if value.get(key)
     }
 
@@ -188,7 +189,280 @@ def _play_library(media_type, db_id, start_seconds=0):
     _play(details.get("file", ""), info, details.get("art"), start_seconds)
 
 
+ANDROID_APPS_PATH = "androidapp://sources/apps/"
+ANDROID_APPS_PREFIX = ANDROID_APPS_PATH
+ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
+
+
+def _app_art(app):
+    icon = app.get("icon_path") or ""
+    return _art({
+        "icon": icon,
+        "thumb": icon,
+        "poster": icon,
+        "clearlogo": app.get("clearlogo_path") or icon,
+        "fanart": app.get("fanart_path") or "",
+    })
+
+
+def _app_folder(label, target, context=None):
+    item = xbmcgui.ListItem(label=label)
+    if context:
+        item.addContextMenuItems(_context(context))
+    xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=True)
+
+
+def _app_groups():
+    groups = STORE.list_app_groups()
+    _folder("Create app group", _url(action="app_create_group"))
+    _folder("Add installed app", _url(action="app_choose_group"))
+    for group in groups:
+        label = "%s (%d)" % (group["name"], group["app_count"])
+        context = [
+            ("Rename group", _url(action="app_rename_group", group_id=group["group_id"])),
+            ("Delete group", _url(action="app_delete_group", group_id=group["group_id"])),
+        ]
+        _app_folder(
+            label,
+            _url(action="app_group", group_id=group["group_id"]),
+            context,
+        )
+    _finish()
+
+
+def _app_group(group_id):
+    group = STORE.get_app_group(group_id)
+    if not group:
+        _notify("App group not found")
+        _app_groups()
+        return
+
+    _folder(
+        "Add installed app",
+        _url(action="app_picker", group_id=group["group_id"]),
+    )
+    _folder(
+        "Rename group",
+        _url(action="app_rename_group", group_id=group["group_id"]),
+    )
+
+    for app in STORE.list_apps(group["group_id"]):
+        package_name = app["package_name"]
+        if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+            continue
+        app_path = ANDROID_APPS_PREFIX + package_name
+        item = xbmcgui.ListItem(label=app["title"], path=app_path)
+        item.setArt(_app_art(app))
+        item.setInfo("video", {
+            "title": app["title"],
+            "mediatype": "video",
+            "plot": "",
+        })
+        item.addContextMenuItems(_context([
+            ("Change app logo", _url(
+                action="app_edit_art",
+                package=package_name,
+                field="clearlogo",
+            )),
+            ("Change app background", _url(
+                action="app_edit_art",
+                package=package_name,
+                field="fanart",
+            )),
+            ("Remove from this group", _url(
+                action="app_remove",
+                package=package_name,
+                group_id=group["group_id"],
+            )),
+            ("Remove app everywhere", _url(
+                action="app_remove",
+                package=package_name,
+            )),
+        ]))
+        xbmcplugin.addDirectoryItem(HANDLE, app_path, item, isFolder=False)
+    _finish()
+
+
+def _create_app_group():
+    name = xbmcgui.Dialog().input("New app group")
+    if name:
+        try:
+            STORE.add_app_group(name)
+            _notify("App group created")
+        except Exception as exc:
+            xbmc.log("Kodi Home: could not create app group: %s" % exc, xbmc.LOGWARNING)
+            _notify("Could not create app group")
+    _app_groups()
+
+
+def _rename_app_group(group_id):
+    group = STORE.get_app_group(group_id)
+    if group:
+        name = xbmcgui.Dialog().input(
+            "Rename app group",
+            defaultt=group["name"],
+        )
+        if name:
+            try:
+                STORE.rename_app_group(group_id, name)
+                _notify("App group updated")
+            except Exception as exc:
+                xbmc.log("Kodi Home: could not rename app group: %s" % exc, xbmc.LOGWARNING)
+                _notify("Could not rename app group")
+    _app_groups()
+
+
+def _delete_app_group(group_id):
+    group = STORE.get_app_group(group_id)
+    if group and xbmcgui.Dialog().yesno(
+        "Delete app group",
+        "Remove '%s' and its group membership?" % group["name"],
+    ):
+        STORE.remove_app_group(group_id)
+        _notify("App group deleted")
+    _app_groups()
+
+
+def _choose_app_group():
+    groups = STORE.list_app_groups()
+    if not groups:
+        _create_app_group()
+        groups = STORE.list_app_groups()
+    if not groups:
+        _finish()
+        return
+
+    selected = xbmcgui.Dialog().select(
+        "Choose app group",
+        [group["name"] for group in groups],
+    )
+    if selected >= 0:
+        _installed_app_picker(groups[selected]["group_id"])
+    else:
+        _app_groups()
+
+
+def _installed_app_picker(group_id):
+    group = STORE.get_app_group(group_id)
+    if not group:
+        _notify("App group not found")
+        _app_groups()
+        return
+    try:
+        result = _rpc(
+            "Files.GetDirectory",
+            {
+                "directory": ANDROID_APPS_PATH,
+                "media": "files",
+                "properties": ["thumbnail"],
+                "sort": {"method": "label", "order": "ascending"},
+            },
+        )
+        entries = result.get("files", [])
+    except Exception as exc:
+        xbmc.log("Kodi Home: could not list Android apps: %s" % exc, xbmc.LOGWARNING)
+        _notify("Could not read the installed Android apps")
+        _app_group(group_id)
+        return
+
+    registered = {app["package_name"] for app in STORE.list_apps(group_id)}
+    for entry in entries:
+        app_path = str(entry.get("file") or "")
+        if not app_path.startswith(ANDROID_APPS_PREFIX):
+            continue
+        package_name = app_path[len(ANDROID_APPS_PREFIX):].strip("/")
+        if not package_name or package_name.endswith(".png"):
+            continue
+        if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+            continue
+
+        label = str(entry.get("label") or entry.get("title") or package_name)
+        icon_path = str(entry.get("thumbnail") or (app_path + ".png"))
+        added = package_name in registered
+        display_label = label + ("  ✓" if added else "")
+        item = xbmcgui.ListItem(label=display_label)
+        item.setArt({"icon": icon_path, "thumb": icon_path})
+        item.setInfo("video", {
+            "title": label,
+            "mediatype": "video",
+            "plot": "Installed Android app",
+        })
+        target = _url(
+            action="app_add",
+            group_id=group_id,
+            package=package_name,
+            label=label,
+            icon=icon_path,
+        )
+        item.addContextMenuItems(_context([
+            ("Add to %s" % group["name"], target),
+        ]))
+        xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=False)
+    _finish()
+
+
+def _add_installed_app(params):
+    group_id = int(params.get("group_id", 0))
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        _installed_app_picker(group_id)
+        return
+    group = STORE.get_app_group(group_id)
+    if not group:
+        _notify("App group not found")
+        _app_groups()
+        return
+    STORE.add_app(
+        package_name,
+        params.get("label", package_name),
+        params.get("icon", ""),
+        group_id,
+    )
+    _notify("Added to %s" % group["name"])
+    _installed_app_picker(group_id)
+
+
+def _remove_app(params):
+    package_name = params.get("package", "")
+    group_id = params.get("group_id")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    removed = STORE.remove_app(
+        package_name,
+        int(group_id) if group_id else None,
+    )
+    _notify("App removed" if removed else "App was not in that group")
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def _edit_app_art(params):
+    package_name = params.get("package", "")
+    field = params.get("field", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    if field not in ("clearlogo", "fanart"):
+        _notify("Unsupported app artwork type")
+        return
+    heading = "Choose white app logo" if field == "clearlogo" else "Choose app background"
+    selected = xbmcgui.Dialog().browseSingle(
+        2,
+        heading,
+        "files",
+        ".png|.jpg|.jpeg|.webp",
+        True,
+        False,
+    )
+    if selected:
+        STORE.update_app_artwork(package_name, field, selected)
+        _notify("App artwork updated")
+        xbmc.executebuiltin("Container.Refresh")
+
+
 def _root():
+    _folder("Apps", _url(action="apps"))
     _folder("Continue Watching", _url(action="list", name="continue"))
     _folder("Up Next", _url(action="list", name="up_next"))
     _folder("History", _url(action="list", name="history"))
@@ -438,6 +712,26 @@ def main():
 
     if action == "root":
         _root()
+    elif action == "apps":
+        _app_groups()
+    elif action == "app_group":
+        _app_group(int(params.get("group_id", 0)))
+    elif action == "app_create_group":
+        _create_app_group()
+    elif action == "app_rename_group":
+        _rename_app_group(int(params.get("group_id", 0)))
+    elif action == "app_delete_group":
+        _delete_app_group(int(params.get("group_id", 0)))
+    elif action == "app_choose_group":
+        _choose_app_group()
+    elif action == "app_picker":
+        _installed_app_picker(int(params.get("group_id", 0)))
+    elif action == "app_add":
+        _add_installed_app(params)
+    elif action == "app_remove":
+        _remove_app(params)
+    elif action == "app_edit_art":
+        _edit_app_art(params)
     elif action == "list" and params.get("name") == "continue":
         _continue_watching()
     elif action == "list" and params.get("name") == "up_next":
@@ -460,6 +754,13 @@ def main():
         _add_to_watchlist(params.get("media_type", "movie"), int(params.get("db_id", 0)))
     elif action.startswith("remove_"):
         _remove(action, params)
+    elif action == "launch_app":
+        package_name = params.get("package", "")
+        if ANDROID_PACKAGE_RE.fullmatch(package_name):
+            xbmc.executebuiltin("StartAndroidActivity(%s)" % package_name)
+        else:
+            _notify("Invalid Android package name")
+        _finish()
     elif action == "play_progress":
         key = params.get("key", "")
         row = next((item for item in STORE.list_continue_watching(500) if item["item_key"] == key), None)

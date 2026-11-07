@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.0"
+CUSTOM_ADDON_VERSION = "0.5.1"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -171,6 +171,66 @@ def apply_app_background_slideshow_overlay(skin_root: Path) -> None:
     ET.fromstring(updated)
     background_file.write_text(updated, encoding="utf-8")
 
+
+
+def apply_library_widget_preset(skin_root: Path) -> None:
+    """Add an opt-in Kodi Home Library preset to Arctic Fuse's setup wizard."""
+    wizard_file = skin_root / "1080i/Dialog_DialogSetupWizard.xml"
+    wizard = wizard_file.read_text(encoding="utf-8")
+    library_card = """            <include content="DialogSetupWizard_Widget_Preset">
+                <param name="preset">library</param>
+                <param name="icon">film</param>
+                <param name="label">$LOCALIZE[31761]</param>
+                <param name="label2">$LOCALIZE[31764]</param>
+            </include>"""
+    kodihome_card = """            <include content="DialogSetupWizard_Widget_Preset">
+                <param name="preset">kodihome</param>
+                <param name="icon">film</param>
+                <param name="label">Kodi Home Library</param>
+                <param name="label2">Movies and TV library widgets</param>
+                <param name="visible">System.AddonIsEnabled(plugin.video.kodihome)</param>
+            </include>"""
+    if wizard.count(library_card) != 1 or "preset</param>\n                <param name=\"preset\">kodihome" in wizard:
+        raise RuntimeError("Could not safely locate the Arctic Fuse widget preset list")
+    wizard = wizard.replace(library_card, library_card + "\n" + kodihome_card, 1)
+    ET.fromstring(wizard)
+    wizard_file.write_text(wizard, encoding="utf-8")
+
+    preset_file = skin_root / "shortcuts/builtins/skinvariables-setupwizard-preset.json"
+    setup = json.loads(preset_file.read_text(encoding="utf-8"))
+    parts = setup.get("parts", {})
+    if "preset_library" not in parts or "preset_kodihome" in parts:
+        raise RuntimeError("Could not safely extend the Arctic Fuse setup wizard preset")
+    parts["preset_kodihome"] = parts["preset_library"]
+    preset_file.write_text(json.dumps(setup, indent=4, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    library_dir = skin_root / "shortcuts/presets/library"
+    kodihome_dir = skin_root / "shortcuts/presets/kodihome"
+    if not library_dir.is_dir() or kodihome_dir.exists():
+        raise RuntimeError("Could not safely create the Kodi Home Library widget preset")
+    shutil.copytree(library_dir, kodihome_dir)
+
+    widget_rows = {
+        "skinvariables-shortcut-1101widgets.json": {
+            "label": "Kodi Home Movies Library",
+            "path": "plugin://plugin.video.kodihome/?action=library_items&media_type=movie",
+        },
+        "skinvariables-shortcut-1102widgets.json": {
+            "label": "Kodi Home TV Library",
+            "path": "plugin://plugin.video.kodihome/?action=library_items&media_type=tvshow",
+        },
+    }
+    for filename, row in widget_rows.items():
+        widget_file = kodihome_dir / filename
+        widgets = json.loads(widget_file.read_text(encoding="utf-8"))
+        widgets.insert(0, {
+            "label": row["label"],
+            "icon": "",
+            "path": row["path"],
+            "target": "videos",
+            "widget_style": "Poster",
+        })
+        widget_file.write_text(json.dumps(widgets, indent=4, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def apply_overlay(skin_root: Path) -> None:

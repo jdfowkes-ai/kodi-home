@@ -154,7 +154,7 @@ class LocalStore:
                     file_path=excluded.file_path,
                     position_seconds=excluded.position_seconds,
                     duration_seconds=excluded.duration_seconds,
-                    art_json=excluded.art_json,
+                    art_json=CASE WHEN excluded.art_json = '{}' THEN playback_progress.art_json ELSE excluded.art_json END,
                     state='in_progress',
                     updated_at=excluded.updated_at
                 """,
@@ -405,7 +405,7 @@ class LocalStore:
                     season=excluded.season,
                     episode=excluded.episode,
                     file_path=excluded.file_path,
-                    art_json=excluded.art_json,
+                    art_json=CASE WHEN excluded.art_json = '{}' THEN up_next_items.art_json ELSE excluded.art_json END,
                     updated_at=excluded.updated_at
                 """,
                 (

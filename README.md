@@ -4,7 +4,7 @@ A clean rebuild of the Kodi home experience for NVIDIA Shield and Kodi Omega.
 
 ## Project status
 
-The add-on source now stores local playback progress, Watchlist data, and completed History. It includes queries for Continue Watching, History, and Up Next; hides removed Continue Watching entries without discarding their resume point; and selects the next unwatched library episode after natural completion. A basic Kodi video add-on browser now exposes the four lists, list removal actions, and adding library movies or shows to Watchlist. A custom Arctic Fuse skin integration is not built yet.
+The add-on source now stores local playback progress, Watchlist data, and completed History. It includes queries for Continue Watching, History, and Up Next; hides removed Continue Watching entries without discarding their resume point; and selects the next unwatched library episode after natural completion. A basic Kodi video add-on browser now exposes the four lists, list removal actions, and adding library movies or shows to Watchlist. A first Arctic Fuse 3.4.18 info-panel overlay and a GitHub Actions packaging workflow are now in source. The workflow packages it as a separate skin add-on so the stock skin remains available. The package has not been installed or visually verified on the Shield.
 
 The source has not been installed or verified on the Shield. No installable add-on or skin package has been built or deployed.
 

@@ -1,6 +1,7 @@
 """Kodi Home local lists and Kodi-library browsing interface."""
 
 import json
+import random
 import re
 import sys
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -16,6 +17,25 @@ from resources.lib.kodihome import LocalStore
 ADDON_ID = "plugin.video.kodihome"
 PLUGIN_URL = "plugin://%s/" % ADDON_ID
 HANDLE = int(sys.argv[1])
+
+
+APP_BACKGROUND_STUDIO_MATCHERS = {
+    "netflix": ("netflix",),
+    "disney+": ("disney+", "disney plus"),
+    "prime video": ("prime video", "amazon"),
+    "amazon prime video": ("prime video", "amazon"),
+    "apple tv": ("apple tv+", "apple tv"),
+    "apple tv+": ("apple tv+", "apple tv"),
+    "bbc iplayer": ("bbc",),
+    "itvx": ("itv",),
+    "channel 4": ("channel 4", "all 4"),
+    "all 4": ("channel 4", "all 4"),
+    "5": ("channel 5",),
+    "channel 5": ("channel 5",),
+    "paramount+": ("paramount+", "paramount plus"),
+    "discovery+": ("discovery+", "discovery plus"),
+    "now": ("sky",),
+}
 ADDON = xbmcaddon.Addon(ADDON_ID)
 STORE = LocalStore(ADDON)
 
@@ -194,15 +214,59 @@ ANDROID_APPS_PREFIX = ANDROID_APPS_PATH
 ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
 
 
-def _app_art(app):
+def _app_art(app, fallback_fanart=""):
     icon = app.get("icon_path") or ""
     return _art({
         "icon": icon,
         "thumb": icon,
         "poster": icon,
         "clearlogo": app.get("clearlogo_path") or "",
-        "fanart": app.get("fanart_path") or "",
+        "fanart": app.get("fanart_path") or fallback_fanart,
     })
+
+
+def _library_service_candidates():
+    """Read Kodi library artwork and studio metadata for app-matched backdrops."""
+    candidates = []
+    for method, result_key in (
+        ("VideoLibrary.GetMovies", "movies"),
+        ("VideoLibrary.GetTVShows", "tvshows"),
+    ):
+        try:
+            result = _rpc(method, {
+                "properties": ["art", "studio"],
+                "limits": {"start": 0, "end": 1000},
+                "sort": {"method": "title", "order": "ascending"},
+            })
+            candidates.extend(result.get(result_key, []))
+        except Exception as exc:
+            xbmc.log(
+                "Kodi Home: app backdrop library lookup failed for %s: %s" % (method, exc),
+                xbmc.LOGDEBUG,
+            )
+    return candidates
+
+
+def _matching_app_fanart(app, candidates):
+    if app.get("fanart_path"):
+        return ""
+    app_name = str(app.get("title") or "").strip().casefold()
+    terms = APP_BACKGROUND_STUDIO_MATCHERS.get(app_name, ())
+    if not terms:
+        return ""
+
+    matches = []
+    for entry in candidates:
+        studios = entry.get("studio") or []
+        if not isinstance(studios, (list, tuple)):
+            studios = [studios]
+        studio_text = " ".join(str(studio) for studio in studios).casefold()
+        if not any(term in studio_text for term in terms):
+            continue
+        fanart = (entry.get("art") or {}).get("fanart")
+        if fanart:
+            matches.append(fanart)
+    return random.choice(matches) if matches else ""
 
 
 def _app_folder(label, target, context=None):
@@ -255,13 +319,15 @@ def _app_group(group_id):
         _url(action="app_rename_group", group_id=group["group_id"]),
     )
 
-    for app in STORE.list_apps(group["group_id"]):
+    apps = STORE.list_apps(group["group_id"])
+    library_candidates = _library_service_candidates()
+    for app in apps:
         package_name = app["package_name"]
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):
             continue
         app_path = ANDROID_APPS_PREFIX + package_name
         item = xbmcgui.ListItem(label=app["title"], path=app_path)
-        item.setArt(_app_art(app))
+        item.setArt(_app_art(app, _matching_app_fanart(app, library_candidates)))
         item.setProperty("KodiHome.AppTile", "true")
         item.setProperty(
             "KodiHome.HasClearLogo",

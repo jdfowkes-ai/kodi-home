@@ -200,7 +200,7 @@ def _app_art(app):
         "icon": icon,
         "thumb": icon,
         "poster": icon,
-        "clearlogo": app.get("clearlogo_path") or icon,
+        "clearlogo": app.get("clearlogo_path") or "",
         "fanart": app.get("fanart_path") or "",
     })
 
@@ -262,6 +262,11 @@ def _app_group(group_id):
         app_path = ANDROID_APPS_PREFIX + package_name
         item = xbmcgui.ListItem(label=app["title"], path=app_path)
         item.setArt(_app_art(app))
+        item.setProperty("KodiHome.AppTile", "true")
+        item.setProperty(
+            "KodiHome.HasClearLogo",
+            "true" if app.get("clearlogo_path") else "false",
+        )
         item.setInfo("video", {
             "title": app["title"],
             "mediatype": "video",

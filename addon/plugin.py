@@ -267,6 +267,8 @@ def _app_group(group_id):
             "KodiHome.HasClearLogo",
             "true" if app.get("clearlogo_path") else "false",
         )
+        if app.get("fanart_folder_path"):
+            item.setProperty("KodiHome.BackgroundFolder", app["fanart_folder_path"])
         item.setInfo("video", {
             "title": app["title"],
             "mediatype": "video",
@@ -282,6 +284,15 @@ def _app_group(group_id):
                 action="app_edit_art",
                 package=package_name,
                 field="fanart",
+            )),
+            ("Choose rotating background folder", _url(
+                action="app_edit_background_folder",
+                package=package_name,
+            )),
+            ("Clear rotating background folder", _url(
+                action="app_edit_background_folder",
+                package=package_name,
+                clear="true",
             )),
             ("Remove from this group", _url(
                 action="app_remove",
@@ -473,6 +484,29 @@ def _edit_app_art(params):
         STORE.update_app_artwork(package_name, field, selected)
         _notify("App artwork updated")
         xbmc.executebuiltin("Container.Refresh")
+
+
+def _edit_app_background_folder(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    if params.get("clear") == "true":
+        STORE.update_app_artwork(package_name, "fanart_folder", "")
+        _notify("Rotating background cleared")
+        xbmc.executebuiltin("Container.Refresh")
+        return
+
+    selected = xbmcgui.Dialog().browseSingle(
+        0,
+        "Choose app background image folder",
+        "pictures",
+    )
+    if selected:
+        STORE.update_app_artwork(package_name, "fanart_folder", selected)
+        _notify("Rotating background folder saved")
+        xbmc.executebuiltin("Container.Refresh")
+
 
 
 def _root():
@@ -746,6 +780,8 @@ def main():
         _remove_app(params)
     elif action == "app_edit_art":
         _edit_app_art(params)
+    elif action == "app_edit_background_folder":
+        _edit_app_background_folder(params)
     elif action == "list" and params.get("name") == "continue":
         _continue_watching()
     elif action == "list" and params.get("name") == "up_next":

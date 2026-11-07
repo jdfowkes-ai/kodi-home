@@ -1,6 +1,8 @@
 """Kodi Home local lists and Kodi-library browsing interface."""
 
+import hashlib
 import json
+import os
 import random
 import re
 import sys
@@ -10,6 +12,7 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
+import xbmcvfs
 
 from resources.lib.kodihome import LocalStore
 
@@ -249,13 +252,12 @@ def _library_service_candidates():
     return candidates
 
 
-def _matching_app_fanart(app, candidates):
-    if app.get("fanart_path"):
-        return ""
+def _matching_app_fanart_matches(app, candidates):
+    """Return unique fanart URLs whose studio metadata matches this app brand."""
     app_name = str(app.get("title") or "").strip().casefold()
     terms = APP_BACKGROUND_STUDIO_MATCHERS.get(app_name, ())
     if not terms:
-        return ""
+        return []
 
     matches = []
     for entry in candidates:
@@ -266,9 +268,64 @@ def _matching_app_fanart(app, candidates):
         if not any(term in studio_text for term in terms):
             continue
         fanart = (entry.get("art") or {}).get("fanart")
-        if fanart:
+        if fanart and fanart not in matches:
             matches.append(fanart)
+    return matches
+
+
+def _matching_app_fanart(app, candidates):
+    if app.get("fanart_path"):
+        return ""
+    matches = _matching_app_fanart_matches(app, candidates)
     return random.choice(matches) if matches else ""
+
+
+def _matching_app_fanart_folder(app, candidates):
+    """Cache a small rotating set of matching Kodi-library fanart for the skin."""
+    if app.get("fanart_path") or app.get("fanart_folder_path"):
+        return ""
+
+    matches = _matching_app_fanart_matches(app, candidates)
+    if not matches:
+        return ""
+
+    package_name = str(app.get("package_name") or "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        return ""
+
+    profile = xbmc.translatePath(ADDON.getAddonInfo("profile"))
+    app_key = hashlib.sha1(package_name.encode("utf-8")).hexdigest()[:16]
+    folder = os.path.join(profile, "app-backgrounds", app_key)
+    try:
+        if not xbmcvfs.mkdirs(folder) and not xbmcvfs.exists(folder):
+            return ""
+        existing_dirs, existing_files = xbmcvfs.listdir(folder)
+        cached_count = len(existing_files)
+        for fanart in random.sample(matches, min(12, len(matches))):
+            if cached_count >= 12:
+                break
+            extension = os.path.splitext(urlparse(fanart).path)[1].lower()
+            if extension not in (".jpg", ".jpeg", ".png", ".webp"):
+                extension = ".jpg"
+            filename = hashlib.sha1(fanart.encode("utf-8")).hexdigest() + extension
+            destination = os.path.join(folder, filename)
+            if xbmcvfs.exists(destination):
+                continue
+            try:
+                if xbmcvfs.copy(fanart, destination):
+                    cached_count += 1
+            except Exception as exc:
+                xbmc.log(
+                    "Kodi Home: could not cache app fanart %s: %s" % (fanart, exc),
+                    xbmc.LOGDEBUG,
+                )
+        return folder if cached_count else ""
+    except Exception as exc:
+        xbmc.log(
+            "Kodi Home: could not prepare rotating app fanart: %s" % exc,
+            xbmc.LOGDEBUG,
+        )
+        return ""
 
 
 def _app_folder(label, target, context=None):
@@ -335,8 +392,9 @@ def _app_group(group_id):
             "KodiHome.HasClearLogo",
             "true" if app.get("clearlogo_path") else "false",
         )
-        if app.get("fanart_folder_path"):
-            item.setProperty("KodiHome.BackgroundFolder", app["fanart_folder_path"])
+        background_folder = app.get("fanart_folder_path") or _matching_app_fanart_folder(app, library_candidates)
+        if background_folder:
+            item.setProperty("KodiHome.BackgroundFolder", background_folder)
         item.setInfo("video", {
             "title": app["title"],
             "mediatype": "video",

@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.3.0"
+CUSTOM_ADDON_VERSION = "0.4.0"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -129,6 +129,47 @@ def apply_app_background_overlay(skin_root: Path) -> None:
 
 
 
+
+def apply_app_background_slideshow_overlay(skin_root: Path) -> None:
+    """Rotate app-specific background images while that app is focused."""
+    background_file = skin_root / "1080i/Includes_Background.xml"
+    source = background_file.read_text(encoding="utf-8")
+    start_marker = '    <include name="Background_Artwork">'
+    end_marker = '    <include name="Background_Blur_Quadrants">'
+    start = source.find(start_marker)
+    end = source.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0:
+        raise RuntimeError("Could not locate the Arctic Fuse artwork background include")
+
+    block = source[start:end]
+    if "KodiHome.BackgroundFolder" in block:
+        raise RuntimeError("Kodi Home app background slideshow is already present")
+    insert_at = block.rfind("        </definition>")
+    if insert_at < 0:
+        raise RuntimeError("Could not locate the Arctic Fuse artwork definition end")
+
+    slideshow = """            <control type="multiimage">
+                <top>0</top>
+                <right>0</right>
+                <height>flixart_size_h</height>
+                <width>flixart_size_w</width>
+                <aspectratio scalediffuse="false">scale</aspectratio>
+                <imagepath>$INFO[Container.ListItem.Property(KodiHome.BackgroundFolder)]</imagepath>
+                <timeperimage>8000</timeperimage>
+                <fadetime>1200</fadetime>
+                <randomize>true</randomize>
+                <loop>yes</loop>
+                <visible>String.IsEqual(Container.ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty(Container.ListItem.Property(KodiHome.BackgroundFolder))</visible>
+                <include>Background_NotVideo</include>
+            </control>
+"""
+    block = block[:insert_at] + slideshow + block[insert_at:]
+    updated = source[:start] + block + source[end:]
+    ET.fromstring(updated)
+    background_file.write_text(updated, encoding="utf-8")
+
+
+
 def apply_overlay(skin_root: Path) -> None:
     addon_xml = skin_root / "addon.xml"
     if not addon_xml.is_file():
@@ -149,6 +190,7 @@ def apply_overlay(skin_root: Path) -> None:
 
     apply_app_tile_overlay(skin_root)
     apply_app_background_overlay(skin_root)
+    apply_app_background_slideshow_overlay(skin_root)
 
     for relative_path, payload in assets.items():
         destination = skin_root / relative_path

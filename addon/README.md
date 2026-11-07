@@ -13,4 +13,6 @@ This is the source for the local playback engine, personal lists, and NVIDIA Shi
 - Watchlist storage supports add/update, explicit removal, and Released / Unreleased / All queries. Opening a Watchlist folder refreshes title, year, release date, and artwork from each linked Kodi library entry so newly available library metadata updates its folder automatically. Entries without a release date stay in Unreleased until metadata is available.
 - The database is stored in Kodi's per-add-on profile.
 
-Apps source now supports installed-app discovery, editable groups, app launch, custom logos and backgrounds, rotating image folders, and library-matched fanart fallback. GitHub Actions can package the add-on, but it has not been installed or verified on the NVIDIA Shield.
+Apps source supports installed-app discovery, editable groups, app launch, custom logos and backgrounds, rotating image folders, and library-matched fanart fallback. Version 0.4.9 replaces the removed `xbmc.translatePath` call with `xbmcvfs.translatePath` when preparing app-group fanart folders, for Kodi 21 compatibility.
+
+GitHub Actions can package the add-on, but Kodi Home 0.4.9 has not yet been tested on the NVIDIA Shield.

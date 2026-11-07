@@ -76,6 +76,8 @@ class KodiHomePlayer(xbmc.Player):
         self._set_active_item(item)
         try:
             self.store.show_continue_watching(item["item_key"])
+            if item["media_type"] == "episode" and item.get("kodi_db_id"):
+                self.store.consume_up_next_episode(item["kodi_db_id"])
             removed = self.store.remove_watchlist_for_playback(item)
             if removed:
                 xbmc.log(

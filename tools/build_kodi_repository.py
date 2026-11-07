@@ -100,17 +100,22 @@ def build(site_dir, skin_source):
         "addons.xml",
         "addons.xml.md5",
     )
-    items = "\\n".join(
+    newline = chr(10)
+    items = newline.join(
         '      <li><a href="{0}">{0}</a></li>'.format(name)
         for name in links
     )
     (site_dir / "index.html").write_text(
-        "<!doctype html>\\n<html lang=\\"en\\">\\n<head><meta charset=\\"utf-8\\">"
-        "<title>Kodi Home Repository</title></head>\\n<body>\\n"
-        "<h1>Kodi Home Repository</h1>\\n"
-        "<p>Add this HTTPS source in Kodi: <code>" + PAGES_URL + "/</code></p>\\n"
-        "<p>Install the Kodi Home Repository ZIP below, then install Kodi Home from "
-        "Kodi Home Repository.</p>\\n<ul>\\n" + items + "\\n</ul>\\n</body>\\n</html>\\n",
+        '<!doctype html>' + newline
+        + '<html lang="en">' + newline
+        + '<head><meta charset="utf-8"><title>Kodi Home Repository</title></head>' + newline
+        + '<body>' + newline
+        + '<h1>Kodi Home Repository</h1>' + newline
+        + '<p>Add this HTTPS source in Kodi: <code>' + PAGES_URL + '/</code></p>' + newline
+        + '<p>Install the Kodi Home Repository ZIP below, then install Kodi Home from '
+        + 'Kodi Home Repository.</p>' + newline
+        + '<ul>' + newline + items + newline + '</ul>' + newline
+        + '</body>' + newline + '</html>' + newline,
         encoding="utf-8",
     )
     print("Built repository site for %s %s and %s %s" % (

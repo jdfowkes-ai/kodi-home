@@ -2,7 +2,7 @@
 
 import json
 import sys
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import xbmc
 import xbmcaddon
@@ -402,7 +402,7 @@ def _add_to_watchlist(media_type, db_id):
             "kodi_db_id": int(db_id),
             "title": item.get("title", ""),
             "year": item.get("year"),
-            "release_date": release_date,
+            "release_date": release_date or None,
             "metadata": {
                 "art": item.get("art", {}),
                 "uniqueid": item.get("uniqueid", {}),
@@ -431,7 +431,7 @@ def _remove(action, params):
 
 
 def main():
-    query = parse_qs(sys.argv[2][1:] if len(sys.argv) > 2 else "")
+    query = parse_qs(urlparse(sys.argv[2]).query if len(sys.argv) > 2 else "")
     params = {key: values[0] for key, values in query.items() if values}
     action = params.get("action", "root")
 

@@ -1,0 +1,32 @@
+# NVIDIA Shield Apps hub
+
+Kodi Home now has a local app catalogue for the NVIDIA Shield.
+
+## Groups
+
+The first run creates these editable groups:
+
+- Favourites
+- Kids
+- Home Apps
+- Gaming
+- Music
+
+You can create, rename, and delete groups. Apps can belong to more than one group.
+
+## Add and launch apps
+
+Open the Kodi Home add-on and choose **Apps**. Choose **Add installed app** or open a group and choose **Add installed app**. Kodi Home reads the installed Android apps from Kodi's native `androidapp://sources/apps/` directory; selecting an app adds it to the chosen group.
+
+Selecting an app from a group opens its native Android package through Kodi's `StartAndroidActivity` built-in. App membership and artwork are stored locally in Kodi Home's add-on profile.
+
+## Artwork
+
+Each app keeps its Android icon and can have a custom clear logo and fanart image selected from Kodi's configured file sources. Arctic Fuse can use the app item's fanart as the focused background and the clear logo as the tile logo.
+
+The visual skin work is still pending for the requested grey tile background, white logo treatment, and animated or rotating brand-related artwork. The app catalogue and paths are in source; installation and Shield verification have not happened yet.
+
+## Paths
+
+- Apps group list: `plugin://plugin.video.kodihome/?action=apps`
+- A group as a widget, for example Home Apps: `plugin://plugin.video.kodihome/?action=app_group&group_name=Home+Apps`

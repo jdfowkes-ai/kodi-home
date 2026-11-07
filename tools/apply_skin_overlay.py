@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.4.0"
+CUSTOM_ADDON_VERSION = "0.5.0"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -110,7 +110,7 @@ def apply_app_tile_overlay(skin_root: Path) -> None:
 
 
 def apply_app_background_overlay(skin_root: Path) -> None:
-    """Use the highlighted app's own fanart as the Apps hub background."""
+    """Use Kodi Home app or library item fanart as the focused background."""
     images_file = skin_root / "1080i/Includes_Images.xml"
     source = images_file.read_text(encoding="utf-8")
     marker = '    <variable name="Image_Foreground">'
@@ -118,12 +118,15 @@ def apply_app_background_overlay(skin_root: Path) -> None:
         raise RuntimeError("Could not locate the Arctic Fuse foreground image variable")
     if "KodiHome.AppTile" in source[source.index(marker):source.index("</variable>", source.index(marker))]:
         raise RuntimeError("Kodi Home app background rule is already present")
-    value = (
+    values = (
+        '        <value condition="String.IsEqual(Container.ListItem.Property(KodiHome.LibraryItem),true) '
+        '+ !String.IsEmpty(Container.ListItem.Art(fanart))">'
+        '$INFO[Container.ListItem.Art(fanart)]</value>\\n'
         '        <value condition="String.IsEqual(Container.ListItem.Property(KodiHome.AppTile),true) '
         '+ !String.IsEmpty(Container.ListItem.Art(fanart))">'
-        '$INFO[Container.ListItem.Art(fanart)]</value>\n'
+        '$INFO[Container.ListItem.Art(fanart)]</value>\\n'
     )
-    updated = source.replace(marker, marker + "\n" + value, 1)
+    updated = source.replace(marker, marker + "\\n" + values, 1)
     ET.fromstring(updated)
     images_file.write_text(updated, encoding="utf-8")
 

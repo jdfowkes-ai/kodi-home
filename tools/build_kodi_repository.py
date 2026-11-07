@@ -65,6 +65,14 @@ def build(site_dir, skin_source):
     package_addon(addon_source, plugin_zip, plugin_id)
     package_addon(skin_source, skin_zip, skin_id)
 
+    # Kodi resolves repository downloads as <datadir>/<addon id>/<package zip>.
+    # Keep root copies for direct/manual installation, and publish the same
+    # packages under the repository's required per-add-on directories.
+    for addon_id, package in ((plugin_id, plugin_zip), (skin_id, skin_zip)):
+        addon_package_dir = site_dir / addon_id
+        addon_package_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(package, addon_package_dir / package.name)
+
     repo_id = "repository.kodihome"
     repo_version = "1.0.1"
     repo_root = PROJECT_ROOT / "repository" / repo_id
@@ -97,12 +105,12 @@ def build(site_dir, skin_source):
         for name in links
     )
     (site_dir / "index.html").write_text(
-        "<!doctype html>\n<html lang=\"en\">\n<head><meta charset=\"utf-8\">"
-        "<title>Kodi Home Repository</title></head>\n<body>\n"
-        "<h1>Kodi Home Repository</h1>\n"
-        "<p>Add this HTTPS source in Kodi: <code>" + PAGES_URL + "/</code></p>\n"
+        "<!doctype html>\\n<html lang=\\"en\\">\\n<head><meta charset=\\"utf-8\\">"
+        "<title>Kodi Home Repository</title></head>\\n<body>\\n"
+        "<h1>Kodi Home Repository</h1>\\n"
+        "<p>Add this HTTPS source in Kodi: <code>" + PAGES_URL + "/</code></p>\\n"
         "<p>Install the Kodi Home Repository ZIP below, then install Kodi Home from "
-        "Kodi Home Repository.</p>\n<ul>\n" + items + "\n</ul>\n</body>\n</html>\n",
+        "Kodi Home Repository.</p>\\n<ul>\\n" + items + "\\n</ul>\\n</body>\\n</html>\\n",
         encoding="utf-8",
     )
     print("Built repository site for %s %s and %s %s" % (

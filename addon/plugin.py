@@ -123,7 +123,14 @@ def _library_episodes(show_id):
             "sort": {"method": "episode", "order": "ascending"},
         },
     )
-    return result.get("episodes", [])
+    episodes = result.get("episodes", [])
+    return sorted(
+        episodes,
+        key=lambda entry: (
+            int(entry.get("season") or 0),
+            int(entry.get("episode") or 0),
+        ),
+    )
 
 
 def _details_for_item(media_type, db_id):

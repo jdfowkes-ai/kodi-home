@@ -10,7 +10,7 @@ This is the source for the local playback engine, personal lists, and NVIDIA Shi
 - The Continue Watching query returns unfinished saved progress. Removing a row hides it while retaining its resume point; starting it again restores it to the list.
 - A natural playback end is recorded in local History. History can be queried and entries removed.
 - After a TV episode ends naturally, the service asks Kodi's video library for the next unwatched episode in the same show. That episode is stored in local Up Next and removed from Up Next when it starts.
-- Watchlist storage supports add/update, explicit removal, and Released / Unreleased / All queries. Entries without a release date stay in Unreleased until metadata is refreshed.
+- Watchlist storage supports add/update, explicit removal, and Released / Unreleased / All queries. Opening a Watchlist folder refreshes title, year, release date, and artwork from each linked Kodi library entry so newly available library metadata updates its folder automatically. Entries without a release date stay in Unreleased until metadata is available.
 - The database is stored in Kodi's per-add-on profile.
 
 Apps source now supports installed-app discovery, editable groups, app launch, custom logos and backgrounds, rotating image folders, and library-matched fanart fallback. GitHub Actions can package the add-on, but it has not been installed or verified on the NVIDIA Shield.

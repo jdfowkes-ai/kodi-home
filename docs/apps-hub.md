@@ -22,7 +22,7 @@ Selecting an app from a group opens its native Android package through Kodi's `S
 
 ## Artwork
 
-Each app keeps its Android icon and can have a custom clear logo and fanart image selected from Kodi's configured file sources. The Arctic Fuse overlay now styles the square app tile with a mid-grey background and a centred clear logo. If no clear logo is set, it shows the app name in white. As focus moves across the widget row, Arctic Fuse can use each app item's fanart as the background.
+Each app keeps its Android icon and can have a custom clear logo and fanart image selected from Kodi's configured file sources. The Arctic Fuse overlay now styles only the square app tile with a slightly transparent mid-grey background and a centred clear logo. If no clear logo is set, it shows the app name in white. As focus moves across the widget row, Arctic Fuse can use each app item's fanart as the background.
 
 The animated or rotating brand-related artwork remains pending. The tile overlay is source code only; installation and Shield verification have not happened yet.
 

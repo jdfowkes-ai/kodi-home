@@ -199,7 +199,7 @@ class LocalStore:
                     title=excluded.title,
                     year=COALESCE(excluded.year, watchlist_items.year),
                     release_date=COALESCE(excluded.release_date, watchlist_items.release_date),
-                    metadata_json=excluded.metadata_json
+                    metadata_json=CASE WHEN excluded.metadata_json = '{}' THEN watchlist_items.metadata_json ELSE excluded.metadata_json END
                 """,
                 (
                     item["item_key"],

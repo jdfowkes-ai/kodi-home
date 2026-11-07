@@ -46,3 +46,10 @@ The upstream `jurialmunkey/skin.arctic.fuse.3` omega branch still declares versi
 - An app group as a widget, for example Home Apps: `plugin://plugin.video.kodihome/?action=app_group&group_name=Home+Apps`
 
 See [the Apps hub notes](apps-hub.md) for app discovery, group management, launch behavior, and visual work still outstanding.
+
+
+## Optional Kodi Home Library preset
+
+The Kodi Home skin build adds **Kodi Home Library** to Arctic Fuse's Widget Sets chooser when the Kodi Home add-on is enabled. It adds a Movies Library widget and a TV Library widget that use Kodi Home's library browser, preserving the Kodi library artwork used for posters and focused fanart.
+
+This is an explicit setup choice. Selecting it applies Arctic Fuse's Library preset to the wider hub shortcut setup; installing or updating the skin does not apply the preset automatically. You can continue configuring widgets and hubs in Arctic Fuse after applying it.

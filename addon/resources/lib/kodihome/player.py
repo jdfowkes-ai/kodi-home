@@ -1,6 +1,7 @@
 """Kodi player callbacks for local playback progress and history."""
 
 import hashlib
+import json
 import time
 import uuid
 
@@ -48,6 +49,8 @@ class KodiHomePlayer(xbmc.Player):
             playback_id = self.playback_id or uuid.uuid4().hex
             try:
                 self.store.mark_completed(item, playback_id)
+                if item["media_type"] == "episode":
+                    self._refresh_up_next(item)
             except Exception as exc:
                 xbmc.log("%s: could not save completion: %s" % (self.log_prefix, exc), xbmc.LOGERROR)
         self._clear_active_item()
@@ -87,6 +90,69 @@ class KodiHomePlayer(xbmc.Player):
                 xbmc.LOGERROR,
             )
         xbmc.log("%s: confirmed start for %s" % (self.log_prefix, item["title"]), xbmc.LOGINFO)
+
+    def _refresh_up_next(self, completed_item):
+        """Select the next unwatched Kodi-library episode for this show."""
+        show_db_id = completed_item.get("tvshow_db_id")
+        if not show_db_id:
+            return
+        request = {
+            "jsonrpc": "2.0",
+            "id": "kodihome-up-next",
+            "method": "VideoLibrary.GetEpisodes",
+            "params": {
+                "tvshowid": show_db_id,
+                "properties": [
+                    "episodeid",
+                    "title",
+                    "showtitle",
+                    "season",
+                    "episode",
+                    "playcount",
+                    "file",
+                ],
+                "limits": {"start": 0, "end": 500},
+            },
+        }
+        try:
+            response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+            episodes = response.get("result", {}).get("episodes", [])
+            current_order = (
+                int(completed_item.get("season") or 0),
+                int(completed_item.get("episode") or 0),
+            )
+            candidates = [
+                episode
+                for episode in episodes
+                if episode.get("episodeid")
+                and (
+                    int(episode.get("season") or 0),
+                    int(episode.get("episode") or 0),
+                )
+                > current_order
+            ]
+            candidates.sort(
+                key=lambda episode: (
+                    int(episode.get("season") or 0),
+                    int(episode.get("episode") or 0),
+                )
+            )
+            for episode in candidates:
+                if int(episode.get("playcount") or 0) > 0:
+                    continue
+                episode_key = "episode:%s" % episode["episodeid"]
+                if self.store.is_completed(episode_key):
+                    continue
+                self.store.set_up_next(
+                    show_db_id, completed_item["item_key"], episode
+                )
+                return
+            self.store.clear_up_next(show_db_id)
+        except Exception as exc:
+            xbmc.log(
+                "%s: could not refresh Up Next: %s" % (self.log_prefix, exc),
+                xbmc.LOGWARNING,
+            )
 
     def _set_active_item(self, item):
         self.active_item = item

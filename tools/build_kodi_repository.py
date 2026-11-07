@@ -61,17 +61,17 @@ def build(site_dir, skin_source):
     skin_xml, skin_id, skin_version = addon_metadata(skin_source / "addon.xml")
 
     plugin_zip = site_dir / (plugin_id + "-" + plugin_version + ".zip")
-    skin_zip = site_dir / (skin_id + "-" + skin_version + ".zip")
+    skin_zip = site_dir / skin_id / (skin_id + "-" + skin_version + ".zip")
     package_addon(addon_source, plugin_zip, plugin_id)
     package_addon(skin_source, skin_zip, skin_id)
 
-    # Kodi resolves repository downloads as <datadir>/<addon id>/<package zip>.
-    # Keep root copies for direct/manual installation, and publish the same
-    # packages under the repository's required per-add-on directories.
-    for addon_id, package in ((plugin_id, plugin_zip), (skin_id, skin_zip)):
-        addon_package_dir = site_dir / addon_id
-        addon_package_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(package, addon_package_dir / package.name)
+    # Kodi resolves downloads as <datadir>/<addon id>/<package zip>.
+    # Keep a root copy of the small plugin ZIP for manual installation, but
+    # publish the larger skin ZIP only in its repository directory to avoid
+    # duplicating it in the Pages artifact.
+    plugin_package_dir = site_dir / plugin_id
+    plugin_package_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(plugin_zip, plugin_package_dir / plugin_zip.name)
 
     repo_id = "repository.kodihome"
     repo_version = "1.0.1"
@@ -96,7 +96,7 @@ def build(site_dir, skin_source):
     links = (
         repo_zip.name,
         plugin_zip.name,
-        skin_zip.name,
+        skin_id + "/" + skin_zip.name,
         "addons.xml",
         "addons.xml.md5",
     )

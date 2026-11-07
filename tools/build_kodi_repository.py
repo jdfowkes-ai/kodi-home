@@ -84,16 +84,16 @@ def build(site_dir, skin_source):
     checksum = hashlib.md5(addons_path.read_bytes()).hexdigest()
     (site_dir / "addons.xml.md5").write_text(checksum, encoding="ascii")
 
-    links = [
-        (repo_zip.name, "Install the Kodi Home Repository"),
-        (plugin_zip.name, "Kodi Home add-on ZIP"),
-        (skin_zip.name, "Arctic Fuse Kodi Home skin ZIP"),
-        ("addons.xml", "Repository index"),
-        ("addons.xml.md5", "Repository checksum"),
-    ]
-    items = "\n".join(
-        '      <li><a href="%s">%s</a></li>' % (name, label)
-        for name, label in links
+    links = (
+        repo_zip.name,
+        plugin_zip.name,
+        skin_zip.name,
+        "addons.xml",
+        "addons.xml.md5",
+    )
+    items = "\\n".join(
+        '      <li><a href="{0}">{0}</a></li>'.format(name)
+        for name in links
     )
     (site_dir / "index.html").write_text(
         "<!doctype html>\n<html lang=\"en\">\n<head><meta charset=\"utf-8\">"

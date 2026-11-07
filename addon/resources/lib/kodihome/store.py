@@ -425,6 +425,15 @@ class LocalStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def consume_up_next_episode(self, episode_db_id):
+        """Remove an Up Next target once that exact episode starts playing."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM up_next_items WHERE episode_db_id = ?",
+                (episode_db_id,),
+            )
+            return cursor.rowcount > 0
+
     def remove_up_next(self, tvshow_db_id):
         """Remove one show's Up Next entry."""
         with self._connection() as connection:

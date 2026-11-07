@@ -26,20 +26,24 @@ This document records the new Kodi Home direction. It supersedes the Unified Lis
 
 ## 4. Local playback and personal lists
 
-All four areas are locally managed and allow entries to be added and removed.
+All four areas are local. Playback automatically adds items to Continue Watching, History, or Up Next as appropriate; users can remove entries from each list.
 
 ### Continue Watching
 
-- Show movies and episodes that are partway through.
+- Show movies and episodes with saved unfinished playback.
 - Resume each item from its last saved playback position.
+- Removing an item hides it from the list but preserves its resume point. Starting it again makes it visible.
 
 ### Up Next
 
-- After an episode is finished, show the next episode in that series.
+- After an episode finishes naturally, show the next unwatched episode available in that show's Kodi library.
+- Remove that episode from Up Next once playback starts.
+- If Kodi has no next eligible episode for the show, show no Up Next entry for it.
 
 ### History
 
-- Record watched movies and shows.
+- Record watched movies and episodes when playback ends naturally.
+- Allow entries to be removed.
 
 ### Watchlist
 
@@ -48,7 +52,6 @@ All four areas are locally managed and allow entries to be added and removed.
 - Remove a movie from Watchlist only after Kodi confirms that its audio or video has started.
 - Remove a show after an episode of that show has actually started. Match the episode to its parent show by a stable Kodi show ID or another exact stable identifier; never guess by a similar title.
 - Selecting an item, opening its information page, or failing before playback starts must leave it in Watchlist.
-- After a successful start, local playback progress feeds Continue Watching; natural completion feeds History and makes the following episode eligible for Up Next. These are local list transitions.
 
 ## 5. Kodi library presentation
 

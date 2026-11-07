@@ -23,6 +23,15 @@ Playback list entries retain available Kodi artwork such as poster, thumb, lands
 
 These are widget content endpoints. They do not install a preset home layout or change the skin's visual style.
 
+## Library widget paths
+
+| Widget | Path |
+| --- | --- |
+| Movies library | plugin://plugin.video.kodihome/?action=library_items&media_type=movie |
+| TV Shows library | plugin://plugin.video.kodihome/?action=library_items&media_type=tvshow |
+
+The library widgets request each Kodi item's poster, landscape, clear logo, and fanart as available, including artwork attached to Umbrella `.strm` entries. The skin overlay tags these entries and prioritizes their own fanart for the focused background, independently of TMDb Helper's blur properties. Choose a poster, landscape, or square view in Arctic Fuse to control the row's tile shape.
+
 ## Skin source version note
 
 You confirmed the Shield baseline is **Arctic Fuse 3.4.18**. I checked the upstream [Arctic Fuse 3 addon.xml](https://github.com/jurialmunkey/skin.arctic.fuse.3/blob/omega/addon.xml); its omega branch declares **3.4.18**, matching your Shield. The connected [jdfowkes-ai fork](https://github.com/jdfowkes-ai/skin.arctic.fuse.3/blob/omega/addon.xml) declares **3.4.48**. Use the upstream 3.4.18 source as the baseline for any skin-specific changes. The widget sources remain version-neutral.

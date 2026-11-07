@@ -531,6 +531,14 @@ class LocalStore:
             ).fetchone()
         return dict(row) if row else None
 
+    def get_app_group_by_name(self, name):
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT group_id, name, sort_order FROM app_groups WHERE name = ? COLLATE NOCASE",
+                (str(name or "").strip(),),
+            ).fetchone()
+        return dict(row) if row else None
+
     def add_app_group(self, name):
         """Create a user-named app group and return its ID."""
         name = str(name or "").strip()

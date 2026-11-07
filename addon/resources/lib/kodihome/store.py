@@ -55,6 +55,7 @@ class LocalStore:
                     file_path TEXT NOT NULL,
                     position_seconds REAL NOT NULL DEFAULT 0,
                     duration_seconds REAL NOT NULL DEFAULT 0,
+                    art_json TEXT NOT NULL DEFAULT '{}',
                     state TEXT NOT NULL DEFAULT 'in_progress'
                         CHECK(state IN ('in_progress', 'completed')),
                     updated_at INTEGER NOT NULL
@@ -74,6 +75,7 @@ class LocalStore:
                     episode INTEGER,
                     file_path TEXT NOT NULL,
                     duration_seconds REAL NOT NULL DEFAULT 0,
+                    art_json TEXT NOT NULL DEFAULT '{}',
                     watched_at INTEGER NOT NULL
                 );
 
@@ -106,6 +108,7 @@ class LocalStore:
                     season INTEGER,
                     episode INTEGER,
                     file_path TEXT NOT NULL,
+                    art_json TEXT NOT NULL DEFAULT '{}',
                     updated_at INTEGER NOT NULL
                 )
                 """
@@ -118,7 +121,16 @@ class LocalStore:
                 )
                 """
             )
-            connection.execute("PRAGMA user_version = 4")
+            for table in ("playback_progress", "watched_history", "up_next_items"):
+                columns = {
+                    row["name"]
+                    for row in connection.execute("PRAGMA table_info(%s)" % table)
+                }
+                if "art_json" not in columns:
+                    connection.execute(
+                        "ALTER TABLE %s ADD COLUMN art_json TEXT NOT NULL DEFAULT '{}'" % table
+                    )
+            connection.execute("PRAGMA user_version = 5")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -129,8 +141,8 @@ class LocalStore:
                 INSERT INTO playback_progress (
                     item_key, media_type, kodi_db_id, title, show_title, year,
                     season, episode, file_path, position_seconds,
-                    duration_seconds, state, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', ?)
+                    duration_seconds, art_json, state, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', ?)
                 ON CONFLICT(item_key) DO UPDATE SET
                     media_type=excluded.media_type,
                     kodi_db_id=excluded.kodi_db_id,
@@ -142,6 +154,7 @@ class LocalStore:
                     file_path=excluded.file_path,
                     position_seconds=excluded.position_seconds,
                     duration_seconds=excluded.duration_seconds,
+                    art_json=excluded.art_json,
                     state='in_progress',
                     updated_at=excluded.updated_at
                 """,
@@ -158,8 +171,8 @@ class LocalStore:
                 INSERT INTO playback_progress (
                     item_key, media_type, kodi_db_id, title, show_title, year,
                     season, episode, file_path, position_seconds,
-                    duration_seconds, state, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)
+                    duration_seconds, art_json, state, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)
                 ON CONFLICT(item_key) DO UPDATE SET
                     media_type=excluded.media_type,
                     kodi_db_id=excluded.kodi_db_id,
@@ -171,6 +184,7 @@ class LocalStore:
                     file_path=excluded.file_path,
                     position_seconds=excluded.position_seconds,
                     duration_seconds=excluded.duration_seconds,
+                    art_json=excluded.art_json,
                     state='completed',
                     updated_at=excluded.updated_at
                 """,
@@ -180,8 +194,8 @@ class LocalStore:
                 """
                 INSERT OR IGNORE INTO watched_history (
                     playback_id, item_key, media_type, title, show_title, year,
-                    season, episode, file_path, duration_seconds, watched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    season, episode, file_path, duration_seconds, art_json, watched_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     playback_id,
@@ -194,6 +208,7 @@ class LocalStore:
                     item["episode"],
                     item["file_path"],
                     item["duration_seconds"],
+                    json.dumps(item.get("art") or {}, sort_keys=True),
                     now,
                 ),
             )
@@ -329,7 +344,7 @@ class LocalStore:
                 """,
                 (max(1, int(limit)),),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return self._decode_art_rows(rows)
 
     def remove_continue_watching(self, item_key):
         """Hide one item from Continue Watching without deleting its history."""
@@ -362,7 +377,7 @@ class LocalStore:
                 """,
                 (max(1, int(limit)),),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return self._decode_art_rows(rows)
 
     def remove_history_entry(self, playback_id):
         """Delete one local History entry."""
@@ -380,8 +395,8 @@ class LocalStore:
                 """
                 INSERT INTO up_next_items (
                     tvshow_db_id, source_item_key, episode_db_id, show_title,
-                    title, season, episode, file_path, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    title, season, episode, file_path, art_json, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(tvshow_db_id) DO UPDATE SET
                     source_item_key=excluded.source_item_key,
                     episode_db_id=excluded.episode_db_id,
@@ -390,6 +405,7 @@ class LocalStore:
                     season=excluded.season,
                     episode=excluded.episode,
                     file_path=excluded.file_path,
+                    art_json=excluded.art_json,
                     updated_at=excluded.updated_at
                 """,
                 (
@@ -401,6 +417,7 @@ class LocalStore:
                     episode.get("season"),
                     episode.get("episode"),
                     episode.get("file", ""),
+                    json.dumps(episode.get("art") or {}, sort_keys=True),
                     int(time.time()),
                 ),
             )
@@ -423,7 +440,7 @@ class LocalStore:
                 """,
                 (max(1, int(limit)),),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return self._decode_art_rows(rows)
 
     def consume_up_next_episode(self, episode_db_id):
         """Remove an Up Next target once that exact episode starts playing."""
@@ -456,6 +473,18 @@ class LocalStore:
         return row is not None
 
     @staticmethod
+    def _decode_art_rows(rows):
+        result = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["art"] = json.loads(item.pop("art_json", "{}") or "{}")
+            except (TypeError, ValueError):
+                item["art"] = {}
+            result.append(item)
+        return result
+
+    @staticmethod
     def _progress_values(item, updated_at):
         return (
             item["item_key"],
@@ -469,5 +498,6 @@ class LocalStore:
             item["file_path"],
             item["position_seconds"],
             item["duration_seconds"],
+            json.dumps(item.get("art") or {}, sort_keys=True),
             updated_at,
         )

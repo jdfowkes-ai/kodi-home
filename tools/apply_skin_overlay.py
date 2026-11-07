@@ -4,7 +4,6 @@
 import argparse
 import base64
 import json
-import re
 import shutil
 import sys
 import xml.etree.ElementTree as ET
@@ -13,6 +12,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
+CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
+CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
+CUSTOM_ADDON_VERSION = "0.1.0"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -66,6 +68,13 @@ def apply_overlay(skin_root: Path) -> None:
         destination = skin_root / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(payload)
+
+    addon_tree = ET.parse(addon_xml)
+    addon_root = addon_tree.getroot()
+    addon_root.set("id", CUSTOM_ADDON_ID)
+    addon_root.set("name", CUSTOM_ADDON_NAME)
+    addon_root.set("version", CUSTOM_ADDON_VERSION)
+    addon_tree.write(addon_xml, encoding="UTF-8", xml_declaration=True)
 
     print(
         f"Applied Kodi Home info overlay to Arctic Fuse {BASE_VERSION}: "

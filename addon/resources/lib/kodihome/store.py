@@ -95,7 +95,22 @@ class LocalStore:
                     ON watchlist_items(release_date, added_at DESC);
                 """
             )
-            connection.execute("PRAGMA user_version = 2")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS up_next_items (
+                    tvshow_db_id INTEGER PRIMARY KEY,
+                    source_item_key TEXT NOT NULL,
+                    episode_db_id INTEGER NOT NULL,
+                    show_title TEXT NOT NULL DEFAULT '',
+                    title TEXT NOT NULL,
+                    season INTEGER,
+                    episode INTEGER,
+                    file_path TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """
+            )
+            connection.execute("PRAGMA user_version = 3")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -293,6 +308,125 @@ class LocalStore:
             item["metadata"] = json.loads(item.pop("metadata_json"))
             result.append(item)
         return result
+
+    def list_continue_watching(self, limit=100):
+        """Return locally tracked items that have saved unfinished progress."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM playback_progress
+                WHERE state = 'in_progress' AND position_seconds > 0
+                ORDER BY updated_at DESC LIMIT ?
+                """,
+                (max(1, int(limit)),),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def remove_continue_watching(self, item_key):
+        """Hide one item from Continue Watching without deleting its history."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM playback_progress
+                WHERE item_key = ? AND state = 'in_progress'
+                """,
+                (item_key,),
+            )
+            return cursor.rowcount > 0
+
+    def list_history(self, limit=100):
+        """Return locally recorded natural playback completions."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM watched_history
+                ORDER BY watched_at DESC LIMIT ?
+                """,
+                (max(1, int(limit)),),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def remove_history_entry(self, playback_id):
+        """Delete one local History entry."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM watched_history WHERE playback_id = ?",
+                (playback_id,),
+            )
+            return cursor.rowcount > 0
+
+    def set_up_next(self, tvshow_db_id, source_item_key, episode):
+        """Replace a show's Up Next target with its next eligible library episode."""
+        with self._connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO up_next_items (
+                    tvshow_db_id, source_item_key, episode_db_id, show_title,
+                    title, season, episode, file_path, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(tvshow_db_id) DO UPDATE SET
+                    source_item_key=excluded.source_item_key,
+                    episode_db_id=excluded.episode_db_id,
+                    show_title=excluded.show_title,
+                    title=excluded.title,
+                    season=excluded.season,
+                    episode=excluded.episode,
+                    file_path=excluded.file_path,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    tvshow_db_id,
+                    source_item_key,
+                    episode["episodeid"],
+                    episode.get("showtitle", ""),
+                    episode.get("title", ""),
+                    episode.get("season"),
+                    episode.get("episode"),
+                    episode.get("file", ""),
+                    int(time.time()),
+                ),
+            )
+
+    def clear_up_next(self, tvshow_db_id):
+        """Remove a show's Up Next target when no eligible library episode exists."""
+        with self._connection() as connection:
+            connection.execute(
+                "DELETE FROM up_next_items WHERE tvshow_db_id = ?",
+                (tvshow_db_id,),
+            )
+
+    def list_up_next(self, limit=100):
+        """Return each show's current locally selected next episode."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM up_next_items
+                ORDER BY updated_at DESC LIMIT ?
+                """,
+                (max(1, int(limit)),),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def remove_up_next(self, tvshow_db_id):
+        """Remove one show's Up Next entry."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM up_next_items WHERE tvshow_db_id = ?",
+                (tvshow_db_id,),
+            )
+            return cursor.rowcount > 0
+
+    def is_completed(self, item_key):
+        """Return whether the local tracker has marked an item complete."""
+        with self._connection() as connection:
+            row = connection.execute(
+                """
+                SELECT 1 FROM playback_progress
+                WHERE item_key = ? AND state = 'completed'
+                """,
+                (item_key,),
+            ).fetchone()
+        return row is not None
 
     @staticmethod
     def _progress_values(item, updated_at):

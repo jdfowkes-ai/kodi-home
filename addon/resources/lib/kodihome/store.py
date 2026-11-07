@@ -110,6 +110,7 @@ class LocalStore:
                     icon_path TEXT NOT NULL DEFAULT '',
                     clearlogo_path TEXT NOT NULL DEFAULT '',
                     fanart_path TEXT NOT NULL DEFAULT '',
+                    fanart_folder_path TEXT NOT NULL DEFAULT '',
                     created_at INTEGER NOT NULL
                 );
 
@@ -150,6 +151,13 @@ class LocalStore:
                 )
                 """
             )
+            app_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(apps)")
+            }
+            if "fanart_folder_path" not in app_columns:
+                connection.execute(
+                    "ALTER TABLE apps ADD COLUMN fanart_folder_path TEXT NOT NULL DEFAULT ''"
+                )
             for table in ("playback_progress", "watched_history", "up_next_items"):
                 columns = {
                     row["name"]
@@ -165,7 +173,7 @@ class LocalStore:
                         "INSERT OR IGNORE INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",
                         (name, sort_order, int(time.time())),
                     )
-            connection.execute("PRAGMA user_version = 6")
+            connection.execute("PRAGMA user_version = 7")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -579,7 +587,8 @@ class LocalStore:
             if group_id is None:
                 rows = connection.execute(
                     """
-                    SELECT package_name, title, icon_path, clearlogo_path, fanart_path
+                    SELECT package_name, title, icon_path, clearlogo_path, fanart_path,
+                           fanart_folder_path
                     FROM apps ORDER BY title COLLATE NOCASE
                     """
                 ).fetchall()
@@ -588,7 +597,7 @@ class LocalStore:
                     """
                     SELECT apps.package_name, apps.title, apps.icon_path,
                            apps.clearlogo_path, apps.fanart_path,
-                           members.sort_order
+                           apps.fanart_folder_path, members.sort_order
                     FROM apps
                     JOIN app_group_members AS members
                       ON members.package_name = apps.package_name
@@ -656,6 +665,7 @@ class LocalStore:
             "icon": "icon_path",
             "clearlogo": "clearlogo_path",
             "fanart": "fanart_path",
+            "fanart_folder": "fanart_folder_path",
         }
         column = columns.get(field)
         if not column:

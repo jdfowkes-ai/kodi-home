@@ -4,7 +4,7 @@ A clean rebuild of the Kodi home experience for NVIDIA Shield and Kodi Omega.
 
 ## Project status
 
-The add-on source scaffold stores playback progress and completed history locally. It now includes Watchlist storage and removes a movie or show entry after Kodi confirms playback has started. The list screens, add/remove controls, resume interface, and Up Next presentation are not built yet.
+The add-on source now stores local playback progress, Watchlist data, and completed History. It includes queries for Continue Watching, History, and Up Next; hides removed Continue Watching entries without discarding their resume point; and selects the next unwatched library episode after natural completion. The list screens, navigation, controls, and resume interface are not built yet.
 
 The source has not been installed or verified on the Shield. No installable add-on or skin package has been built or deployed.
 

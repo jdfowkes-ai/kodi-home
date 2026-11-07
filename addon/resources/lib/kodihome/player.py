@@ -75,6 +75,7 @@ class KodiHomePlayer(xbmc.Player):
             return
         self._set_active_item(item)
         try:
+            self.store.show_continue_watching(item["item_key"])
             removed = self.store.remove_watchlist_for_playback(item)
             if removed:
                 xbmc.log(

@@ -8,7 +8,7 @@ The add-on source now stores local playback progress, Watchlist data, and comple
 
 The source has not been installed or verified on the Shield. No installable add-on or skin package has been built or deployed.
 
-The current user-reported stable skin baseline is Arctic Fuse 3 version 3.4.18. Confirm the version on the Shield before preparing a device package.
+The Shield skin baseline was reported as Arctic Fuse 3.4.18. The connected skin.arctic.fuse.3 omega source currently declares 3.4.48, so Kodi Home uses version-neutral widget paths and has not modified or packaged skin XML. See docs/arctic-fuse-widgets.md.
 
 ## Product boundaries
 

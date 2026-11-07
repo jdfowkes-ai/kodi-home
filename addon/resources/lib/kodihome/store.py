@@ -110,7 +110,15 @@ class LocalStore:
                 )
                 """
             )
-            connection.execute("PRAGMA user_version = 3")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS hidden_continue_watching (
+                    item_key TEXT PRIMARY KEY,
+                    hidden_at INTEGER NOT NULL
+                )
+                """
+            )
+            connection.execute("PRAGMA user_version = 4")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -316,6 +324,7 @@ class LocalStore:
                 """
                 SELECT * FROM playback_progress
                 WHERE state = 'in_progress' AND position_seconds > 0
+                  AND item_key NOT IN (SELECT item_key FROM hidden_continue_watching)
                 ORDER BY updated_at DESC LIMIT ?
                 """,
                 (max(1, int(limit)),),
@@ -327,12 +336,21 @@ class LocalStore:
         with self._connection() as connection:
             cursor = connection.execute(
                 """
-                DELETE FROM playback_progress
+                INSERT OR IGNORE INTO hidden_continue_watching (item_key, hidden_at)
+                SELECT item_key, ? FROM playback_progress
                 WHERE item_key = ? AND state = 'in_progress'
                 """,
-                (item_key,),
+                (int(time.time()), item_key),
             )
             return cursor.rowcount > 0
+
+    def show_continue_watching(self, item_key):
+        """Make an item visible in Continue Watching after it starts again."""
+        with self._connection() as connection:
+            connection.execute(
+                "DELETE FROM hidden_continue_watching WHERE item_key = ?",
+                (item_key,),
+            )
 
     def list_history(self, limit=100):
         """Return locally recorded natural playback completions."""

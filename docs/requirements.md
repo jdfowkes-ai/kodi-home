@@ -26,7 +26,7 @@ This document records the new Kodi Home direction. It supersedes the Unified Lis
 
 ## 4. Local playback and personal lists
 
-All four areas are local. Playback automatically adds items to Continue Watching, History, or Up Next as appropriate; users can remove entries from each list.
+All four areas are local and accessible from the Kodi Home video add-on. Playback automatically adds items to Continue Watching, History, or Up Next as appropriate; users can remove entries from each list. Movies and shows from Kodi's library can be added to Watchlist from the add-on.
 
 ### Continue Watching
 

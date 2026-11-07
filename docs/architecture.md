@@ -8,7 +8,7 @@ Build a focused Arctic Fuse 3 based interface for the Apps and Library hubs and 
 
 ### Kodi Home add-on (`addon/`)
 
-Own the app catalogue and groups, local lists, and playback tracking. Store user data in Kodi's add-on profile using a small local database. A Kodi video add-on plugin exposes the local lists and library-based Watchlist controls through Kodi's standard list interface. Use Kodi playback callbacks to record starts, progress, completion, and stops for library items, including `.strm` files.
+Own the app catalogue and groups, local lists, and playback tracking. Store user data in Kodi's add-on profile using a small local database. A Kodi video add-on plugin exposes the local lists, Movie and TV Show library widgets, and library-based Watchlist controls through Kodi's standard list interface. Use Kodi playback callbacks to record starts, progress, completion, and stops for library items, including `.strm` files.
 
 ### Build and release tools (`tools/`)
 

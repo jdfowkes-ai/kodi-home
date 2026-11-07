@@ -70,7 +70,7 @@ def _video_item(label, target, info, art=None, context=None, folder=False):
 def _finish(content="videos"):
     xbmcplugin.setContent(HANDLE, content)
     xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_UNSORTED)
-    xbmcplugin.endOfDirectory(HANDLE)
+    xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)
 
 
 def _notify(message):

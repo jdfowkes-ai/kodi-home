@@ -224,10 +224,19 @@ def _app_groups():
         ]
         _app_folder(
             label,
-            _url(action="app_group", group_id=group["group_id"]),
+            _url(action="app_group", group_name=group["name"]),
             context,
         )
     _finish()
+
+
+def _app_group_route(params):
+    group_name = params.get("group_name", "")
+    if group_name:
+        group = STORE.get_app_group_by_name(group_name)
+        _app_group(group["group_id"] if group else 0)
+    else:
+        _app_group(int(params.get("group_id", 0)))
 
 
 def _app_group(group_id):
@@ -715,7 +724,7 @@ def main():
     elif action == "apps":
         _app_groups()
     elif action == "app_group":
-        _app_group(int(params.get("group_id", 0)))
+        _app_group_route(params)
     elif action == "app_create_group":
         _create_app_group()
     elif action == "app_rename_group":

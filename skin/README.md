@@ -9,6 +9,7 @@ These files are a focused overlay for the upstream Arctic Fuse 3.4.18 source. Th
 - Migrates the previous Trakt and Metacritic defaults to IMDb and Rotten Tomatoes Critic for Movies and TV Shows.
 - Styles Kodi Home app tiles in square views with a slightly transparent mid-grey background, a centred clear logo, and a white app-name fallback.
 - Uses each highlighted app's own fanart as the Apps hub background, ahead of TMDb Helper background properties.
+- Prioritizes Kodi library item fanart for Kodi Home Library widget rows, including Umbrella `.strm` entries.
 - Optionally rotates images from a per-app folder at eight-second intervals with a crossfade, limited to the selected Apps tile.
 
 The existing info panel places metadata after the synopsis. Its native TMDb Helper properties provide the rating values and artwork; Kodi Home playback tracking does not depend on TMDb Helper.

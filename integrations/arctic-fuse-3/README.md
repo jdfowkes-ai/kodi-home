@@ -13,6 +13,6 @@ Each source uses Kodi Home's plugin URL and returns Kodi video-library items wit
 
 ## Important setup note
 
-This JSON file is a source preset for maintainers to merge into Arctic Fuse's `skinvariables-shortcut-homewidgets.json`. Kodi and Arctic Fuse do not automatically load a JSON file from this Kodi Home repository, so adding this file alone does not change the Shield's home screen. You confirmed the Shield baseline is 3.4.18; the connected skin source declares 3.4.48 and has no 3.4.18 tag, so any skin package must be based on the exact 3.4.18 source.
+This JSON file is a source preset for maintainers to merge into Arctic Fuse's `skinvariables-shortcut-homewidgets.json`. Kodi and Arctic Fuse do not automatically load a JSON file from this Kodi Home repository, so adding this file alone does not change the Shield's home screen. Your Shield baseline is confirmed as 3.4.18, and the upstream Arctic Fuse 3 omega source matches that version. Use that upstream source for any later skin-specific package; the connected personal fork currently declares 3.4.48.
 
 For the source URLs and current compatibility note, see [the widget path reference](../../docs/arctic-fuse-widgets.md).

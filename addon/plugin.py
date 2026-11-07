@@ -293,7 +293,7 @@ def _matching_app_fanart_folder(app, candidates):
     if not ANDROID_PACKAGE_RE.fullmatch(package_name):
         return ""
 
-    profile = xbmc.translatePath(ADDON.getAddonInfo("profile"))
+    profile = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
     app_key = hashlib.sha1(package_name.encode("utf-8")).hexdigest()[:16]
     folder = os.path.join(profile, "app-backgrounds", app_key)
     try:

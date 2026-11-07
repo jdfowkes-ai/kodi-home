@@ -60,7 +60,7 @@ def apply_app_tile_overlay(skin_root: Path) -> None:
 
     block = source[start:end]
     group_open = '        <control type="group">'
-    if block.count(group_open) != 1 or "KodiHome.AppTile" in block:
+    if block.count(group_open) < 1 or "KodiHome.AppTile" in block:
         raise RuntimeError("Arctic Fuse square tile include has an unexpected structure")
     block = block.replace(
         group_open,

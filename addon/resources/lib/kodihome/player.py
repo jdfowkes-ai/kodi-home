@@ -89,7 +89,7 @@ class KodiHomePlayer(xbmc.Player):
         if item["position_seconds"] <= 0:
             return
         try:
-            self.store.save_progress(item, self.playback_id or uuid.uuid4().hex)
+            self.store.save_progress(item)
             self.active_item = item
             self.last_saved_at = now
         except Exception as exc:
@@ -107,13 +107,14 @@ class KodiHomePlayer(xbmc.Player):
             kodi_db_id = int(tag.getDbId() or 0) or None
             item_key = "%s:%s" % (media_type, kodi_db_id) if kodi_db_id else self._path_key(media_type, file_path)
             duration = max(0.0, float(self.getTotalTime()))
-            position = min(max(0.0, float(self.getTime())), duration) if duration else max(0.0, float(self.getTime()))
+            current_time = max(0.0, float(self.getTime()))
+            position = min(current_time, duration) if duration else current_time
             return {
                 "item_key": item_key,
                 "media_type": media_type,
                 "kodi_db_id": kodi_db_id,
                 "title": tag.getTitle() or file_path.rsplit("/", 1)[-1],
-                "show_title": tag.getTvShowTitle() or "",
+                "show_title": tag.getTVShowTitle() or "",
                 "year": int(tag.getYear() or 0) or None,
                 "season": int(tag.getSeason() or 0) or None,
                 "episode": int(tag.getEpisode() or 0) or None,

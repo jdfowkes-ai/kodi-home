@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="script.kodihome"
+<addon id="plugin.video.kodihome"
        name="Kodi Home"
-       version="0.1.0"
+       version="0.2.0"
        provider-name="jdfowkes-ai">
     <requires>
         <import addon="xbmc.python" version="3.0.0" />
     </requires>
+    <extension point="xbmc.python.pluginsource" library="plugin.py" provides="video" />
     <extension point="xbmc.service" library="service.py" start="startup" />
     <extension point="xbmc.addon.metadata">
-        <summary lang="en_GB">Local playback tracking and personal Kodi features</summary>
-        <description lang="en_GB">Tracks local playback progress and watched history for Kodi library items.</description>
+        <summary lang="en_GB">Local playback lists and Kodi Home features</summary>
+        <description lang="en_GB">Locally managed Continue Watching, Up Next, History, and Watchlist, with playback tracking for Kodi library items.</description>
         <platform>all</platform>
     </extension>
 </addon>

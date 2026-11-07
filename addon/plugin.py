@@ -384,8 +384,8 @@ def _app_group(group_id):
         package_name = app["package_name"]
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):
             continue
-        app_path = ANDROID_APPS_PREFIX + package_name
-        item = xbmcgui.ListItem(label=app["title"], path=app_path)
+        target = _url(action="launch_app", package=package_name)
+        item = xbmcgui.ListItem(label=app["title"], path=target)
         item.setArt(_app_art(app, _matching_app_fanart(app, library_candidates)))
         item.setProperty("KodiHome.AppTile", "true")
         item.setProperty(
@@ -401,6 +401,11 @@ def _app_group(group_id):
             "plot": "",
         })
         item.addContextMenuItems(_context([
+            ("Rename app", _url(
+                action="app_rename",
+                package=package_name,
+                title=app["title"],
+            )),
             ("Change app logo", _url(
                 action="app_edit_art",
                 package=package_name,
@@ -430,7 +435,7 @@ def _app_group(group_id):
                 package=package_name,
             )),
         ]))
-        xbmcplugin.addDirectoryItem(HANDLE, app_path, item, isFolder=False)
+        xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=False)
     _finish()
 
 
@@ -502,6 +507,7 @@ def _android_app_label(package_name):
         "com.google.android.youtube.tvkids": "YouTube Kids",
         "com.apple.atve.androidtv.appletv": "Apple TV",
         "com.bbc.iplayer": "BBC iPlayer",
+        "air.ITVMobilePlayer": "ITVX",
         "com.itv.itvx": "ITVX",
         "com.channel4.android": "Channel 4",
         "com.paramountplus": "Paramount+",
@@ -585,6 +591,19 @@ def _add_installed_app(params):
     )
     _notify("Added to %s" % group["name"])
     _installed_app_picker(group_id)
+
+
+def _rename_app(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    current_title = params.get("title", package_name)
+    title = xbmcgui.Dialog().input("Rename app", defaultt=current_title)
+    if title:
+        STORE.add_app(package_name, title)
+        _notify("App name updated")
+        xbmc.executebuiltin("Container.Refresh")
 
 
 def _remove_app(params):
@@ -958,6 +977,8 @@ def main():
         _add_installed_app(params)
     elif action == "app_remove":
         _remove_app(params)
+    elif action == "app_rename":
+        _rename_app(params)
     elif action == "app_edit_art":
         _edit_app_art(params)
     elif action == "app_edit_background_folder":

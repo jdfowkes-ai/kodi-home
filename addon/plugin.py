@@ -719,7 +719,40 @@ def _watchlist():
     _finish()
 
 
+def _refresh_watchlist_metadata():
+    """Refresh saved Watchlist rows from their current Kodi library entries."""
+    for row in STORE.list_watchlist("all"):
+        db_id = row.get("kodi_db_id")
+        if not db_id:
+            continue
+        try:
+            if row["media_type"] == "movie":
+                details = _movie_details(db_id)
+            elif row["media_type"] == "tvshow":
+                details = _show_details(db_id)
+            else:
+                details = None
+            if not details:
+                continue
+            metadata = row.get("metadata") or {}
+            metadata["art"] = details.get("art") or metadata.get("art", {})
+            metadata["uniqueid"] = details.get("uniqueid") or metadata.get("uniqueid", {})
+            STORE.refresh_watchlist_metadata({
+                "item_key": row["item_key"],
+                "title": details.get("title") or row["title"],
+                "year": details.get("year") or row.get("year"),
+                "release_date": details.get("premiered") or row.get("release_date"),
+                "metadata": metadata,
+            })
+        except Exception as exc:
+            xbmc.log(
+                "Kodi Home: watchlist metadata refresh failed for %s: %s" % (row.get("item_key"), exc),
+                xbmc.LOGDEBUG,
+            )
+
+
 def _watchlist_items(bucket):
+    _refresh_watchlist_metadata()
     for row in STORE.list_watchlist(bucket=bucket):
         info = {
             "title": row["title"],

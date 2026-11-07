@@ -113,6 +113,7 @@ class KodiHomePlayer(xbmc.Player):
                     "episode",
                     "playcount",
                     "file",
+                    "art",
                 ],
                 "limits": {"start": 0, "end": 500},
             },
@@ -195,6 +196,14 @@ class KodiHomePlayer(xbmc.Player):
             duration = max(0.0, float(self.getTotalTime()))
             current_time = max(0.0, float(self.getTime()))
             position = min(current_time, duration) if duration else current_time
+            art = {}
+            for art_key in ("thumb", "poster", "banner", "fanart", "clearart", "clearlogo", "landscape", "icon"):
+                try:
+                    art_value = list_item.getArt(art_key)
+                    if art_value:
+                        art[art_key] = art_value
+                except Exception:
+                    pass
             return {
                 "item_key": item_key,
                 "media_type": media_type,
@@ -210,6 +219,7 @@ class KodiHomePlayer(xbmc.Player):
                 "file_path": file_path,
                 "position_seconds": position,
                 "duration_seconds": duration,
+                "art": art,
             }
         except Exception:
             return None

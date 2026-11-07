@@ -190,7 +190,7 @@ def apply_library_widget_preset(skin_root: Path) -> None:
                 <param name="label2">Movies and TV library widgets</param>
                 <param name="visible">System.AddonIsEnabled(plugin.video.kodihome)</param>
             </include>"""
-    if wizard.count(library_card) != 1 or "preset</param>\n                <param name=\"preset\">kodihome" in wizard:
+    if wizard.count(library_card) != 1 or '<param name="preset">kodihome</param>' in wizard:
         raise RuntimeError("Could not safely locate the Arctic Fuse widget preset list")
     wizard = wizard.replace(library_card, library_card + "\n" + kodihome_card, 1)
     ET.fromstring(wizard)

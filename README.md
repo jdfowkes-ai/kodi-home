@@ -8,7 +8,7 @@ The add-on source now stores local playback progress, Watchlist data, and comple
 
 The source has not been installed or verified on the Shield. No installable add-on or skin package has been built or deployed.
 
-Your Shield baseline is Arctic Fuse 3.4.18. The connected skin.arctic.fuse.3 omega source declares 3.4.48, so the target version is confirmed, but that source checkout is not yet an exact 3.4.18 base. Kodi Home has not modified or packaged skin XML. See docs/arctic-fuse-widgets.md.
+Your Shield baseline is Arctic Fuse 3.4.18. I checked the upstream `jurialmunkey/skin.arctic.fuse.3` omega source and its addon.xml declares 3.4.18, matching your Shield. The connected `jdfowkes-ai` fork's omega branch declares 3.4.48, so use the upstream 3.4.18 source as the skin baseline. Kodi Home has not modified or packaged skin XML yet. See docs/arctic-fuse-widgets.md.
 
 ## Product boundaries
 

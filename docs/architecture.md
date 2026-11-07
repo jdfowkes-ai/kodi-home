@@ -27,19 +27,22 @@ Build from checked-in source and verify package contents and version metadata be
 1. The user selects a Kodi library item.
 2. Kodi plays the library item's file or `.strm` target. Umbrella may resolve the stream behind a `.strm` entry.
 3. Kodi Home observes Kodi's player events and records progress locally without calling Umbrella, TMDb Helper, or Trakt for tracking.
-4. Continue Watching uses the locally saved position. Completion moves an item into History and makes the next available episode eligible for Up Next.
+4. If that item is in Watchlist, Kodi Home removes a movie after confirmed AV start. For a show, it removes the matching show entry only after one of its episodes starts and Kodi supplies the parent show ID. A selection or failed launch leaves the entry untouched.
+5. Continue Watching uses locally saved position. Natural completion records History and makes the following episode eligible for Up Next.
 
-## First playback source slice
+## First playback and Watchlist source slice
 
-The add-on source scaffold uses Kodi's startup service extension and an `xbmc.Player` callback monitor:
+The add-on source uses Kodi's startup service extension and an `xbmc.Player` callback monitor:
 
 - `onAVStarted` begins tracking after Kodi reports an active audio/video stream.
+- The same confirmed-start callback triggers Watchlist removal. Movie entries match by stable item key or Kodi movie database ID; show entries match by parent TV-show database ID. It does not fuzzy-match titles.
+- Watchlist storage supports adding/updating an item, explicit removal, and Released / Unreleased / All queries. Missing release dates remain in Unreleased until metadata is supplied.
 - Position is saved locally at 30-second intervals and on pause, seek, or deliberate stop.
 - A deliberate stop saves progress without marking the item watched.
 - Kodi's natural playback-ended callback marks the item complete and records a history row.
 - The SQLite database is placed in the add-on profile.
 
-This describes source behavior only. It has not been installed or verified on the Shield. The UI, resume prompt, Up Next list, Watchlist, and Apps management are not implemented yet. Kodi documents `onAVStarted` for confirmed playback, `getPlayingItem()` for the current item, and `getTime()` / `getTotalTime()` for playback position and duration. See the [Kodi Player API](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player.html), [player callbacks](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player_c_b.html), and [service add-on guide](https://kodi.wiki/view/Service_add-ons).
+This describes source behavior only. It has not been installed or verified on the Shield. Watchlist screens and user controls, Continue Watching presentation and resume prompt, Up Next presentation, and Apps management are not implemented yet. Kodi documents `onAVStarted` for confirmed playback, `getPlayingItem()` for the current item, and `getTime()` / `getTotalTime()` for playback position and duration. Kodi's `VideoPlayer.TvShowDBID` infolabel provides the current episode's parent show database ID. See the [Kodi Player API](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player.html), [player callbacks](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player_c_b.html), [Kodi info labels](https://kodi.wiki/view/InfoLabels), and [service add-on guide](https://kodi.wiki/view/Service_add-ons).
 
 ## Metadata and artwork
 

@@ -19,10 +19,8 @@ The user's Shield baseline is Arctic Fuse 3.4.18. The upstream `jurialmunkey/ski
 - The information line displays the MPAA value as text. It does not provide the agreed UK certificate icon treatment in the upstream 3.4.18 source.
 - The connected skin fork contains a separate UK certificate icon implementation and corresponding UK badge assets. These can be used as a reference, but should be ported and reviewed against the confirmed 3.4.18 upstream files rather than copied as a full fork.
 
-## Planned first skin patch
+## First skin patch status
 
-1. Add genre as a persistent field in the information line.
-2. Replace UK MPAA text with the matching UK certificate icon where a UK rating is recognized; keep readable text as a fallback for other ratings.
-3. Default the movie and TV rating rows to IMDb and Rotten Tomatoes Critic so both logos and scores appear after the synopsis.
-4. Preserve the native TMDb Helper metadata boundary for rating retrieval; local playback and list tracking remain independent of TMDb Helper.
-5. Build the skin as a traceable overlay on the upstream 3.4.18 source and verify it on the Shield before calling the visual change complete.
+The source overlay now adds genre as a persistent field, maps recognized UK MPAA values to UK certificate badge assets while retaining a text fallback, and migrates the previous Trakt/Metacritic defaults to IMDb/Rotten Tomatoes Critic. The build script refuses any source skin whose version is not 3.4.18 and packages the result under a separate Kodi Home skin add-on ID.
+
+The GitHub Actions build workflow is in place. The package has not yet been confirmed as built or installed, and the visual result still needs Shield verification.

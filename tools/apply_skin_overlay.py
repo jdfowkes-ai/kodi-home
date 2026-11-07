@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.1.0"
+CUSTOM_ADDON_VERSION = "0.2.0"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -46,6 +46,68 @@ def validate_overlay() -> tuple[dict[Path, bytes], dict[str, bytes]]:
     return overlay_files, assets
 
 
+
+def apply_app_tile_overlay(skin_root: Path) -> None:
+    """Add a grey, white-logo presentation to Kodi Home app tiles in square views."""
+    views_file = skin_root / "1080i/Includes_Views_List.xml"
+    source = views_file.read_text(encoding="utf-8")
+    start_marker = '    <include name="View_Media_Square">'
+    end_marker = '    <include name="View_Media_Poster">'
+    start = source.find(start_marker)
+    end = source.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0 or source.find(start_marker, start + 1) >= 0:
+        raise RuntimeError("Could not locate the expected Arctic Fuse square tile include")
+
+    block = source[start:end]
+    group_open = '        <control type="group">'
+    if block.count(group_open) != 1 or "KodiHome.AppTile" in block:
+        raise RuntimeError("Arctic Fuse square tile include has an unexpected structure")
+    block = block.replace(
+        group_open,
+        group_open + '\n            <visible>!String.IsEqual(ListItem.Property(KodiHome.AppTile),true)</visible>',
+        1,
+    )
+
+    tile = """        <control type="group">
+            <visible>String.IsEqual(ListItem.Property(KodiHome.AppTile),true)</visible>
+            <height>612</height>
+            <width>612</width>
+            <control type="image">
+                <texture colordiffuse="FF707070">common/white.png</texture>
+            </control>
+            <control type="image">
+                <width>80%</width>
+                <height>42%</height>
+                <centerleft>50%</centerleft>
+                <centertop>50%</centertop>
+                <aspectratio>keep</aspectratio>
+                <texture>$INFO[ListItem.Art(clearlogo)]</texture>
+                <visible>String.IsEqual(ListItem.Property(KodiHome.HasClearLogo),true)</visible>
+            </control>
+            <control type="label">
+                <width>85%</width>
+                <height>120</height>
+                <centerleft>50%</centerleft>
+                <centertop>50%</centertop>
+                <align>center</align>
+                <aligny>center</aligny>
+                <font>font_main_bold</font>
+                <textcolor>FFFFFFFF</textcolor>
+                <label>$INFO[ListItem.Label]</label>
+                <visible>!String.IsEqual(ListItem.Property(KodiHome.HasClearLogo),true)</visible>
+            </control>
+        </control>
+"""
+    closing = '    </include>'
+    close_at = block.rfind(closing)
+    if close_at < 0:
+        raise RuntimeError("Could not close the Arctic Fuse square tile include")
+    block = block[:close_at] + tile + block[close_at:]
+    updated = source[:start] + block + source[end:]
+    ET.fromstring(updated)
+    views_file.write_text(updated, encoding="utf-8")
+
+
 def apply_overlay(skin_root: Path) -> None:
     addon_xml = skin_root / "addon.xml"
     if not addon_xml.is_file():
@@ -64,6 +126,8 @@ def apply_overlay(skin_root: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(payload)
 
+    apply_app_tile_overlay(skin_root)
+
     for relative_path, payload in assets.items():
         destination = skin_root / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +141,7 @@ def apply_overlay(skin_root: Path) -> None:
     addon_tree.write(addon_xml, encoding="UTF-8", xml_declaration=True)
 
     print(
-        f"Applied Kodi Home info overlay to Arctic Fuse {BASE_VERSION}: "
+        f"Applied Kodi Home info and app tile overlays to Arctic Fuse {BASE_VERSION}: "
         f"{len(overlay_files)} files and {len(assets)} certificate badges."
     )
 

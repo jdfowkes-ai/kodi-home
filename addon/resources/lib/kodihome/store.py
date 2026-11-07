@@ -41,6 +41,7 @@ class LocalStore:
 
     def _initialize(self):
         with self._connection() as connection:
+            schema_version = connection.execute("PRAGMA user_version").fetchone()[0]
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS playback_progress (
@@ -158,7 +159,7 @@ class LocalStore:
                     connection.execute(
                         "ALTER TABLE %s ADD COLUMN art_json TEXT NOT NULL DEFAULT '{}'" % table
                     )
-            if connection.execute("SELECT COUNT(*) FROM app_groups").fetchone()[0] == 0:
+            if schema_version < 6 and connection.execute("SELECT COUNT(*) FROM app_groups").fetchone()[0] == 0:
                 for sort_order, name in enumerate(("Favourites", "Kids", "Home Apps", "Gaming", "Music")):
                     connection.execute(
                         "INSERT OR IGNORE INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",

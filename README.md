@@ -4,7 +4,7 @@ A clean rebuild of the Kodi home experience for NVIDIA Shield and Kodi Omega.
 
 ## Project status
 
-The add-on source stores local Continue Watching, Up Next, History, and Watchlist data, and now includes an NVIDIA Shield Apps hub with installed-app discovery, editable groups, app launching, and per-app logo/fanart fields. An Arctic Fuse 3.4.18 overlay now includes the info-panel changes, grey app tiles with white logos or name fallbacks, and selected-app fanart backgrounds. A GitHub Actions packaging workflow builds the separate skin package. Animated or rotating brand backgrounds still need implementing in the skin. The add-on and skin have not been installed or verified on the Shield.
+The add-on source stores local Continue Watching, Up Next, History, and Watchlist data, and now includes an NVIDIA Shield Apps hub with installed-app discovery, editable groups, app launching, and per-app logo/fanart fields. An Arctic Fuse 3.4.18 overlay now includes the info-panel changes, grey app tiles with white logos or name fallbacks, and selected-app fanart backgrounds with optional rotating image folders. A GitHub Actions packaging workflow builds the separate skin package. Animated or rotating brand backgrounds still need implementing in the skin. The add-on and skin have not been installed or verified on the Shield.
 
 
 Your Shield baseline is Arctic Fuse 3.4.18. The info-panel overlay and skin builder use the matching upstream 3.4.18 source and package as a separate add-on. The connected `jdfowkes-ai` fork declares 3.4.48. See [widget paths](docs/arctic-fuse-widgets.md) and [Apps hub details](docs/apps-hub.md).

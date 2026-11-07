@@ -13,4 +13,4 @@ This is the source for the local playback engine, personal lists, and NVIDIA Shi
 - Watchlist storage supports add/update, explicit removal, and Released / Unreleased / All queries. Entries without a release date stay in Unreleased until metadata is refreshed.
 - The database is stored in Kodi's per-add-on profile.
 
-Apps source now supports installed-app discovery, editable groups, app launch, custom logos and backgrounds, rotating image folders, and library-matched fanart fallback. This code and the local list screens have not been packaged or verified on the NVIDIA Shield.
+Apps source now supports installed-app discovery, editable groups, app launch, custom logos and backgrounds, rotating image folders, and library-matched fanart fallback. GitHub Actions can package the add-on, but it has not been installed or verified on the NVIDIA Shield.

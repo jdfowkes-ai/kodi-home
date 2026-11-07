@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.kodihome"
        name="Kodi Home"
-       version="0.3.0"
+       version="0.4.0"
        provider-name="jdfowkes-ai">
     <requires>
         <import addon="xbmc.python" version="3.0.0" />
@@ -11,8 +11,8 @@
     </extension>
     <extension point="xbmc.service" library="service.py" start="startup" />
     <extension point="xbmc.addon.metadata">
-        <summary lang="en_GB">Local playback lists and Kodi Home features</summary>
-        <description lang="en_GB">Locally managed Continue Watching, Up Next, History, and Watchlist, with playback tracking for Kodi library items.</description>
+        <summary lang="en_GB">Local playback lists and NVIDIA Shield app groups</summary>
+        <description lang="en_GB">Locally managed Continue Watching, Up Next, History, and Watchlist, with NVIDIA Shield app discovery, user groups, and per-app artwork.</description>
         <platform>all</platform>
     </extension>
 </addon>

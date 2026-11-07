@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.1"
+CUSTOM_ADDON_VERSION = "0.5.2"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -233,6 +233,20 @@ def apply_library_widget_preset(skin_root: Path) -> None:
         widget_file.write_text(json.dumps(widgets, indent=4, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+
+def apply_keep_changes_focus_overlay(skin_root: Path) -> None:
+    """Give Kodi's Keep Changes button the initial focus after a skin switch."""
+    dialog_file = skin_root / "1080i/DialogConfirm.xml"
+    source = dialog_file.read_text(encoding="utf-8")
+    marker = "<window>"
+    focused = '<window>\n    <defaultcontrol always="true">9010</defaultcontrol>'
+    if source.count(marker) != 1 or "<defaultcontrol" in source:
+        raise RuntimeError("Could not safely set the Arctic Fuse confirmation dialog focus")
+    updated = source.replace(marker, focused, 1)
+    ET.fromstring(updated)
+    dialog_file.write_text(updated, encoding="utf-8")
+
+
 def apply_overlay(skin_root: Path) -> None:
     addon_xml = skin_root / "addon.xml"
     if not addon_xml.is_file():
@@ -252,6 +266,7 @@ def apply_overlay(skin_root: Path) -> None:
         destination.write_bytes(payload)
 
     apply_app_tile_overlay(skin_root)
+    apply_keep_changes_focus_overlay(skin_root)
     apply_app_background_overlay(skin_root)
     apply_app_background_slideshow_overlay(skin_root)
 

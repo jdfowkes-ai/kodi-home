@@ -25,4 +25,4 @@ These are widget content endpoints. They do not install a preset home layout or 
 
 ## Skin source version note
 
-The connected jdfowkes-ai/skin.arctic.fuse.3 omega branch was inspected at commit d8fbf73beebdc2671f9683a1bd5e27862757d51d; its addon.xml declares version **3.4.48**. The Shield baseline has been reported as **3.4.18**, but has not been checked on the device in this project. This integration therefore uses the plugin paths and avoids editing or packaging skin XML against a different version.
+You confirmed the Shield baseline is **Arctic Fuse 3.4.18**. The connected jdfowkes-ai/skin.arctic.fuse.3 omega branch was inspected at commit [d8fbf73](https://github.com/jdfowkes-ai/skin.arctic.fuse.3/commit/d8fbf73beebdc2671f9683a1bd5e27862757d51d); its addon.xml declares **3.4.48**, and no 3.4.18 tag was found. The widget sources remain version-neutral. Skin-specific XML work must use the exact 3.4.18 base.

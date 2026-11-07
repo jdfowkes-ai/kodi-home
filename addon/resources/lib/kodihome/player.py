@@ -61,16 +61,31 @@ class KodiHomePlayer(xbmc.Player):
             if item is None:
                 return
             if self.active_item is None or item["item_key"] != self.active_item["item_key"]:
-                self._set_active_item(item)
+                self._begin_current_item(item)
             self._save_progress(force=False, item=item)
         except Exception as exc:
             xbmc.log("%s: playback poll failed: %s" % (self.log_prefix, exc), xbmc.LOGWARNING)
 
-    def _begin_current_item(self):
-        item = self._read_current_item()
+    def _begin_current_item(self, item=None):
+        item = item or self._read_current_item()
         if item is None:
             return
         self._set_active_item(item)
+        try:
+            removed = self.store.remove_watchlist_for_playback(item)
+            if removed:
+                xbmc.log(
+                    "%s: removed started item from Watchlist: %s"
+                    % (self.log_prefix, item["title"]),
+                    xbmc.LOGINFO,
+                )
+        except Exception as exc:
+            # Playback still proceeds if local Watchlist maintenance fails.
+            xbmc.log(
+                "%s: could not update Watchlist after confirmed start: %s"
+                % (self.log_prefix, exc),
+                xbmc.LOGERROR,
+            )
         xbmc.log("%s: confirmed start for %s" % (self.log_prefix, item["title"]), xbmc.LOGINFO)
 
     def _set_active_item(self, item):
@@ -113,6 +128,9 @@ class KodiHomePlayer(xbmc.Player):
                 "item_key": item_key,
                 "media_type": media_type,
                 "kodi_db_id": kodi_db_id,
+                "tvshow_db_id": int(xbmc.getInfoLabel("VideoPlayer.TvShowDBID") or 0) or None
+                if media_type == "episode"
+                else None,
                 "title": tag.getTitle() or file_path.rsplit("/", 1)[-1],
                 "show_title": tag.getTVShowTitle() or "",
                 "year": int(tag.getYear() or 0) or None,

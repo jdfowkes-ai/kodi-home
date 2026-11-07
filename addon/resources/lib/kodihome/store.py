@@ -1,8 +1,10 @@
-"""SQLite persistence for locally tracked Kodi playback."""
+"""SQLite persistence for Kodi Home playback and personal lists."""
 
+import json
 import sqlite3
 import time
 from contextlib import contextmanager
+from datetime import date
 from pathlib import Path
 
 import xbmcaddon
@@ -77,9 +79,23 @@ class LocalStore:
 
                 CREATE INDEX IF NOT EXISTS idx_watched_history_watched_at
                     ON watched_history(watched_at DESC);
+
+                CREATE TABLE IF NOT EXISTS watchlist_items (
+                    item_key TEXT PRIMARY KEY,
+                    media_type TEXT NOT NULL CHECK(media_type IN ('movie', 'tvshow')),
+                    kodi_db_id INTEGER,
+                    title TEXT NOT NULL,
+                    year INTEGER,
+                    release_date TEXT,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    added_at INTEGER NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_watchlist_items_release
+                    ON watchlist_items(release_date, added_at DESC);
                 """
             )
-            connection.execute("PRAGMA user_version = 1")
+            connection.execute("PRAGMA user_version = 2")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -158,6 +174,125 @@ class LocalStore:
                     now,
                 ),
             )
+
+    def add_watchlist_item(self, item):
+        """Add or refresh a locally managed movie or show watchlist entry.
+
+        Required keys: item_key, media_type ('movie' or 'tvshow'), title.
+        Optional keys: kodi_db_id, year, release_date (ISO YYYY-MM-DD),
+        metadata (JSON-serializable dict of metadata/source identifiers).
+        """
+        media_type = item["media_type"]
+        if media_type not in ("movie", "tvshow"):
+            raise ValueError("Watchlist media_type must be 'movie' or 'tvshow'")
+        metadata_json = json.dumps(item.get("metadata") or {}, sort_keys=True)
+        with self._connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO watchlist_items (
+                    item_key, media_type, kodi_db_id, title, year,
+                    release_date, metadata_json, added_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(item_key) DO UPDATE SET
+                    media_type=excluded.media_type,
+                    kodi_db_id=COALESCE(excluded.kodi_db_id, watchlist_items.kodi_db_id),
+                    title=excluded.title,
+                    year=COALESCE(excluded.year, watchlist_items.year),
+                    release_date=COALESCE(excluded.release_date, watchlist_items.release_date),
+                    metadata_json=excluded.metadata_json
+                """,
+                (
+                    item["item_key"],
+                    media_type,
+                    item.get("kodi_db_id"),
+                    item["title"],
+                    item.get("year"),
+                    item.get("release_date"),
+                    metadata_json,
+                    int(time.time()),
+                ),
+            )
+
+    def remove_watchlist_item(self, item_key):
+        """Remove one entry explicitly by its stable local key."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM watchlist_items WHERE item_key = ?", (item_key,)
+            )
+            return cursor.rowcount > 0
+
+    def remove_watchlist_for_playback(self, item):
+        """Remove a movie or parent show after Kodi confirms AV playback."""
+        with self._connection() as connection:
+            if item["media_type"] == "movie":
+                cursor = connection.execute(
+                    """
+                    DELETE FROM watchlist_items
+                    WHERE item_key = ?
+                       OR (kodi_db_id IS NOT NULL AND kodi_db_id = ? AND media_type = 'movie')
+                    """,
+                    (item["item_key"], item.get("kodi_db_id")),
+                )
+                return cursor.rowcount > 0
+
+            if item["media_type"] == "episode":
+                show_db_id = item.get("tvshow_db_id")
+                if show_db_id:
+                    cursor = connection.execute(
+                        """
+                        DELETE FROM watchlist_items
+                        WHERE media_type = 'tvshow' AND kodi_db_id = ?
+                        """,
+                        (show_db_id,),
+                    )
+                    return cursor.rowcount > 0
+                # A stable parent key can be supplied by a future metadata resolver.
+                show_item_key = item.get("show_item_key")
+                if show_item_key:
+                    cursor = connection.execute(
+                        """
+                        DELETE FROM watchlist_items
+                        WHERE media_type = 'tvshow' AND item_key = ?
+                        """,
+                        (show_item_key,),
+                    )
+                    return cursor.rowcount > 0
+        return False
+
+    def list_watchlist(self, bucket="all", today=None):
+        """Return watchlist rows filtered as all, released, or unreleased.
+
+        Missing release dates remain in the unreleased bucket until metadata is
+        available; callers can refresh metadata without removing the entry.
+        """
+        if bucket not in ("all", "released", "unreleased"):
+            raise ValueError("bucket must be 'all', 'released', or 'unreleased'")
+        today = today or date.today().isoformat()
+        if bucket == "released":
+            query = """
+                SELECT * FROM watchlist_items
+                WHERE release_date IS NOT NULL AND release_date <= ?
+                ORDER BY added_at DESC
+            """
+            params = (today,)
+        elif bucket == "unreleased":
+            query = """
+                SELECT * FROM watchlist_items
+                WHERE release_date IS NULL OR release_date > ?
+                ORDER BY added_at DESC
+            """
+            params = (today,)
+        else:
+            query = "SELECT * FROM watchlist_items ORDER BY added_at DESC"
+            params = ()
+        with self._connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["metadata"] = json.loads(item.pop("metadata_json"))
+            result.append(item)
+        return result
 
     @staticmethod
     def _progress_values(item, updated_at):

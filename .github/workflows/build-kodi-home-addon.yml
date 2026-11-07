@@ -1,0 +1,47 @@
+name: Build Kodi Home Add-on
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "addon/**"
+      - ".github/workflows/build-kodi-home-addon.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Kodi Home
+        uses: actions/checkout@v4
+
+      - name: Package installable add-on
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          source = Path("addon")
+          metadata = ElementTree.parse(source / "addon.xml").getroot()
+          addon_id = metadata.attrib["id"]
+          version = metadata.attrib["version"]
+          output = Path("dist") / f"{addon_id}-{version}.zip"
+          output.parent.mkdir(parents=True, exist_ok=True)
+
+          with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+              for path in sorted(source.rglob("*")):
+                  if path.is_file() and ".git" not in path.parts:
+                      archive.write(path, Path(addon_id) / path.relative_to(source))
+
+          print(f"Created {output}")
+          PY
+
+      - name: Upload installable add-on artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin.video.kodihome
+          path: dist/plugin.video.kodihome-*.zip
+          if-no-files-found: error

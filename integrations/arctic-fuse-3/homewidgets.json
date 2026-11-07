@@ -1,0 +1,38 @@
+[
+  {
+    "label": "Continue Watching",
+    "icon": "",
+    "path": "plugin://plugin.video.kodihome/?action=list&name=continue",
+    "target": "videos"
+  },
+  {
+    "label": "Up Next",
+    "icon": "",
+    "path": "plugin://plugin.video.kodihome/?action=list&name=up_next",
+    "target": "videos"
+  },
+  {
+    "label": "History",
+    "icon": "",
+    "path": "plugin://plugin.video.kodihome/?action=list&name=history",
+    "target": "videos"
+  },
+  {
+    "label": "Watchlist · All",
+    "icon": "",
+    "path": "plugin://plugin.video.kodihome/?action=watchlist_items&bucket=all",
+    "target": "videos"
+  },
+  {
+    "label": "Watchlist · Released",
+    "icon": "",
+    "path": "plugin://plugin.video.kodihome/?action=watchlist_items&bucket=released",
+    "target": "videos"
+  },
+  {
+    "label": "Watchlist · Unreleased",
+    "icon": "",
+    "path": "plugin://plugin.video.kodihome/?action=watchlist_items&bucket=unreleased",
+    "target": "videos"
+  }
+]

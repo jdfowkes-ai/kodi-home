@@ -355,7 +355,8 @@ def _library_items(media_type):
         if not db_id:
             continue
         label = entry.get("title", "")
-        target = _url(action="add_watchlist", media_type=media_type, db_id=db_id)
+        target = _url(action="library_entry", media_type=media_type, db_id=db_id)
+        add_target = _url(action="add_watchlist", media_type=media_type, db_id=db_id)
         info = {
             "title": label,
             "mediatype": "movie" if media_type == "movie" else "tvshow",
@@ -363,8 +364,19 @@ def _library_items(media_type):
             "plot": entry.get("plot", ""),
             "genre": entry.get("genre", []),
         }
-        context = [("Add to Watchlist", target)]
-        _video_item(label, target, info, art=entry.get("art"), context=context)
+        context = [("Add to Watchlist", add_target)]
+        _video_item(label, target, info, art=entry.get("art"), context=context, folder=True)
+    _finish()
+
+
+def _library_entry(media_type, db_id):
+    details = _movie_details(db_id) if media_type == "movie" else _show_details(db_id)
+    if not details:
+        _notify("Kodi could not find this library item")
+        _finish()
+        return
+    title = details.get("title", "")
+    _folder("Add %s to Watchlist" % title, _url(action="add_watchlist", media_type=media_type, db_id=db_id), details.get("art"))
     _finish()
 
 
@@ -398,7 +410,11 @@ def _add_to_watchlist(media_type, db_id):
         }
     )
     _notify("Added to Watchlist")
-    xbmc.executebuiltin("Container.Refresh")
+    if HANDLE >= 0:
+        _folder("Open Watchlist", _url(action="watchlist_items", bucket="all"))
+        _finish()
+    else:
+        xbmc.executebuiltin("Container.Refresh")
 
 
 def _remove(action, params):
@@ -437,6 +453,8 @@ def main():
         _add_library()
     elif action == "library_items":
         _library_items(params.get("media_type", "movie"))
+    elif action == "library_entry":
+        _library_entry(params.get("media_type", "movie"), int(params.get("db_id", 0)))
     elif action == "add_watchlist":
         _add_to_watchlist(params.get("media_type", "movie"), int(params.get("db_id", 0)))
     elif action.startswith("remove_"):

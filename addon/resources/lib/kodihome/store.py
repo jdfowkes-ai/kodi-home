@@ -2,6 +2,7 @@
 
 import sqlite3
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import xbmcaddon
@@ -24,8 +25,20 @@ class LocalStore:
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
+    @contextmanager
+    def _connection(self):
+        connection = self._connect()
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def _initialize(self):
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS playback_progress (
@@ -68,10 +81,10 @@ class LocalStore:
             )
             connection.execute("PRAGMA user_version = 1")
 
-    def save_progress(self, item, playback_id):
+    def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
         now = int(time.time())
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO playback_progress (
@@ -100,7 +113,7 @@ class LocalStore:
         """Mark a naturally ended item complete and append one history entry."""
         now = int(time.time())
         values = self._progress_values(item, now)
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO playback_progress (

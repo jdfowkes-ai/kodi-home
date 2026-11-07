@@ -28,9 +28,9 @@ Build from checked-in source and verify package contents and version metadata be
 2. Kodi plays the library item's file or `.strm` target. Umbrella may resolve the stream behind a `.strm` entry.
 3. Kodi Home observes Kodi's player events and records progress locally without calling Umbrella, TMDb Helper, or Trakt for tracking.
 4. If that item is in Watchlist, Kodi Home removes a movie after confirmed AV start. For a show, it removes the matching show entry only after one of its episodes starts and Kodi supplies the parent show ID. A selection or failed launch leaves the entry untouched.
-5. Continue Watching uses locally saved position. Natural completion records History and makes the following episode eligible for Up Next.
+5. Continue Watching reads unfinished saved progress. Removing a row hides it while preserving the resume point; starting the item again restores it. Natural completion records History and selects the next unwatched episode available in Kodi's library for Up Next. When that episode starts, its Up Next row is consumed.
 
-## First playback and Watchlist source slice
+## Local playback and personal-list source slices
 
 The add-on source uses Kodi's startup service extension and an `xbmc.Player` callback monitor:
 
@@ -39,10 +39,12 @@ The add-on source uses Kodi's startup service extension and an `xbmc.Player` cal
 - Watchlist storage supports adding/updating an item, explicit removal, and Released / Unreleased / All queries. Missing release dates remain in Unreleased until metadata is supplied.
 - Position is saved locally at 30-second intervals and on pause, seek, or deliberate stop.
 - A deliberate stop saves progress without marking the item watched.
-- Kodi's natural playback-ended callback marks the item complete and records a history row.
+- Kodi's natural playback-ended callback marks an item complete and records a History row.
+- Local queries expose Continue Watching, History, and Up Next. Continue Watching removal hides a row without deleting its progress; History and Up Next entries can be removed.
+- When an episode ends, the service calls Kodi's `VideoLibrary.GetEpisodes` JSON-RPC method for the parent show, chooses the next unwatched episode after the completed season/episode, and stores its library ID and file path in Up Next. Starting that exact episode removes it from Up Next.
 - The SQLite database is placed in the add-on profile.
 
-This describes source behavior only. It has not been installed or verified on the Shield. Watchlist screens and user controls, Continue Watching presentation and resume prompt, Up Next presentation, and Apps management are not implemented yet. Kodi documents `onAVStarted` for confirmed playback, `getPlayingItem()` for the current item, and `getTime()` / `getTotalTime()` for playback position and duration. Kodi's `VideoPlayer.TvShowDBID` infolabel provides the current episode's parent show database ID. See the [Kodi Player API](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player.html), [player callbacks](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player_c_b.html), [Kodi info labels](https://kodi.wiki/view/InfoLabels), and [service add-on guide](https://kodi.wiki/view/Service_add-ons).
+This describes source behavior only. It has not been installed or verified on the Shield. Watchlist, Continue Watching, History, and Up Next screens and controls, the resume prompt, and Apps management are not implemented yet. Kodi documents `onAVStarted` for confirmed playback, `getPlayingItem()` for the current item, and `getTime()` / `getTotalTime()` for playback position and duration. Kodi's `VideoPlayer.TvShowDBID` infolabel provides the current episode's parent show database ID. Kodi's `VideoLibrary.GetEpisodes` method supports filtering the episode list by a TV-show database ID and requesting episode properties. See the [Kodi JSON-RPC VideoLibrary API](https://kodi.wiki/view/JSON-RPC_API/v12#VideoLibrary.GetEpisodes). See the [Kodi Player API](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player.html), [player callbacks](https://xbmc.github.io/docs.kodi.tv/master/kodi-dev-kit/group__python___player_c_b.html), [Kodi info labels](https://kodi.wiki/view/InfoLabels), and [service add-on guide](https://kodi.wiki/view/Service_add-ons).
 
 ## Metadata and artwork
 
@@ -56,7 +58,7 @@ Metadata and fanart may come from any available source. Normalize them into Kodi
 ## Decisions to verify before implementation
 
 - Completion threshold and the user-facing resume behavior.
-- How to choose the next episode when an episode is absent from the Kodi library.
+- Whether the selected Kodi library ordering should account for special episode sort metadata on Shield.
 - Which animated app backgrounds are available locally or from chosen sources, and how they should fall back on Shield.
 - How often release metadata and artwork refresh, and how to handle unavailable metadata.
 - Kodi and Arctic Fuse 3 compatibility details on the actual Shield installation.

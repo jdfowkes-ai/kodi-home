@@ -45,6 +45,10 @@ All four areas are locally managed and allow entries to be added and removed.
 
 - Add and remove movies and shows for later.
 - Refresh release metadata and sort the list into **Released**, **Unreleased**, and **All**.
+- Remove a movie from Watchlist only after Kodi confirms that its audio or video has started.
+- Remove a show after an episode of that show has actually started. Match the episode to its parent show by a stable Kodi show ID or another exact stable identifier; never guess by a similar title.
+- Selecting an item, opening its information page, or failing before playback starts must leave it in Watchlist.
+- After a successful start, local playback progress feeds Continue Watching; natural completion feeds History and makes the following episode eligible for Up Next. These are local list transitions.
 
 ## 5. Kodi library presentation
 

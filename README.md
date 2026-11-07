@@ -4,9 +4,9 @@ A clean rebuild of the Kodi home experience for NVIDIA Shield and Kodi Omega.
 
 ## Project status
 
-The first local playback service source scaffold is in `addon/`. It stores playback progress and completed history in a local SQLite database. It has not been installed or verified on the Shield.
+The add-on source scaffold stores playback progress and completed history locally. It now includes Watchlist storage and removes a movie or show entry after Kodi confirms playback has started. The list screens, add/remove controls, resume interface, and Up Next presentation are not built yet.
 
-No installable add-on or skin package has been built or deployed.
+The source has not been installed or verified on the Shield. No installable add-on or skin package has been built or deployed.
 
 The current user-reported stable skin baseline is Arctic Fuse 3 version 3.4.18. Confirm the version on the Shield before preparing a device package.
 

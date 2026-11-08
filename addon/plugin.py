@@ -24,20 +24,22 @@ HANDLE = int(sys.argv[1])
 
 APP_BACKGROUND_STUDIO_MATCHERS = {
     "netflix": ("netflix",),
-    "disney+": ("disney+", "disney plus"),
-    "prime video": ("prime video", "amazon"),
-    "amazon prime video": ("prime video", "amazon"),
-    "apple tv": ("apple tv+", "apple tv"),
-    "apple tv+": ("apple tv+", "apple tv"),
+    "disney+": ("disney+", "disney plus", "walt disney", "disney studios", "pixar", "marvel", "lucasfilm", "national geographic"),
+    "prime video": ("prime video", "amazon studios", "amazon"),
+    "amazon prime video": ("prime video", "amazon studios", "amazon"),
+    "apple tv": ("apple tv+", "apple tv", "apple studios", "apple original"),
+    "apple tv+": ("apple tv+", "apple tv", "apple studios", "apple original"),
     "bbc iplayer": ("bbc",),
     "itvx": ("itv",),
     "channel 4": ("channel 4", "all 4"),
     "all 4": ("channel 4", "all 4"),
     "5": ("channel 5",),
     "channel 5": ("channel 5",),
-    "paramount+": ("paramount+", "paramount plus"),
-    "discovery+": ("discovery+", "discovery plus"),
+    "paramount+": ("paramount+", "paramount plus", "paramount pictures", "nickelodeon"),
+    "discovery+": ("discovery+", "discovery plus", "discovery channel"),
     "now": ("sky",),
+    "youtube": ("youtube originals", "youtube"),
+    "youtube kids": ("youtube originals", "youtube"),
 }
 ADDON = xbmcaddon.Addon(ADDON_ID)
 STORE = LocalStore(ADDON)

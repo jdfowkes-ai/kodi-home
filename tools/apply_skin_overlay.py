@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.2"
+CUSTOM_ADDON_VERSION = "0.5.3"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -107,6 +107,62 @@ def apply_app_tile_overlay(skin_root: Path) -> None:
     ET.fromstring(updated)
     views_file.write_text(updated, encoding="utf-8")
 
+
+
+def apply_app_widget_tile_overlay(skin_root: Path) -> None:
+    """Style Kodi Home app tiles in Arctic Fuse's square Home widget layout."""
+    layouts_file = skin_root / "1080i/Includes_Layouts.xml"
+    source = layouts_file.read_text(encoding="utf-8")
+    start_marker = '    <include name="Layout_Square">'
+    end_marker = '    <include name="Layout_Circle">'
+    start = source.find(start_marker)
+    end = source.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0 or source.find(start_marker, start + 1) >= 0:
+        raise RuntimeError("Could not locate the expected Arctic Fuse square widget layout")
+
+    block = source[start:end]
+    icon_start = block.find('                    <include content="Object_Layout_Image_Icon">')
+    icon_end = block.find('                    <include content="Object_ProgressLine">', icon_start)
+    if icon_start < 0 or icon_end < 0 or "KodiHome.AppTile" in block:
+        raise RuntimeError("Arctic Fuse square widget layout has an unexpected structure")
+    original_icon = block[icon_start:icon_end]
+    tile = """                    <control type="group">
+                        <visible>!String.IsEqual($PARAM[listitem].Property(KodiHome.AppTile),true)</visible>
+"""+original_icon+"""                    </control>
+                    <control type="group">
+                        <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.AppTile),true)</visible>
+                        <width>$PARAM[item_w]</width>
+                        <height>$PARAM[item_h]</height>
+                        <control type="image">
+                            <texture colordiffuse="D9707070">common/white.png</texture>
+                        </control>
+                        <control type="image">
+                            <width>80%</width>
+                            <height>42%</height>
+                            <centerleft>50%</centerleft>
+                            <centertop>50%</centertop>
+                            <aspectratio>keep</aspectratio>
+                            <texture>$INFO[$PARAM[listitem].Art(clearlogo)]</texture>
+                            <visible>!String.IsEmpty($PARAM[listitem].Art(clearlogo))</visible>
+                        </control>
+                        <control type="label">
+                            <width>85%</width>
+                            <height>120</height>
+                            <centerleft>50%</centerleft>
+                            <centertop>50%</centertop>
+                            <align>center</align>
+                            <aligny>center</aligny>
+                            <font>font_main_bold</font>
+                            <textcolor>FFFFFFFF</textcolor>
+                            <label>$INFO[$PARAM[listitem].Label]</label>
+                            <visible>String.IsEmpty($PARAM[listitem].Art(clearlogo))</visible>
+                        </control>
+                    </control>
+"""
+    block = block[:icon_start] + tile + block[icon_end:]
+    updated = source[:start] + block + source[end:]
+    ET.fromstring(updated)
+    layouts_file.write_text(updated, encoding="utf-8")
 
 
 def apply_app_background_overlay(skin_root: Path) -> None:
@@ -266,6 +322,7 @@ def apply_overlay(skin_root: Path) -> None:
         destination.write_bytes(payload)
 
     apply_app_tile_overlay(skin_root)
+    apply_app_widget_tile_overlay(skin_root)
     apply_keep_changes_focus_overlay(skin_root)
     apply_app_background_overlay(skin_root)
     apply_app_background_slideshow_overlay(skin_root)

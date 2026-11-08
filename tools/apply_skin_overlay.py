@@ -348,7 +348,11 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
     marker = '    <include name="Hub_Spotlight_List">'
     if hubs.count(marker) != 1 or 'name="Home_Spotlight_Content"' in hubs:
         raise RuntimeError("Could not safely extend the Arctic Fuse Home spotlight variables")
-    variables = """    <variable name="Home_Spotlight_Content">
+    variables = """    <variable name="AppSpotlight_Background">
+        <value condition="!String.IsEmpty(Window(Home).Property(AppSpotlight.Path)) + !String.IsEmpty(Container(301).ListItem.Art(fanart))">$INFO[Container(301).ListItem.Art(fanart)]</value>
+        <value>$INFO[Window(Home).Property(AppSpotlight.Blur)]</value>
+    </variable>
+    <variable name="Home_Spotlight_Content">
         <value condition="!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))">$INFO[Window(Home).Property(AppSpotlight.Path)]</value>
         <value>$INFO[Skin.String(HomeSwitcher.Home.Spotlight.Path)]</value>
     </variable>
@@ -401,9 +405,12 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
                     <width>1920</width>
                     <height>1080</height>
                     <aspectratio>scale</aspectratio>
-                    <texture background="true">$INFO[Window(Home).Property(AppSpotlight.Blur)]</texture>
+                    <texture background="true">$VAR[AppSpotlight_Background]</texture>
                     <visible>String.IsEqual($PARAM[window],home) + !String.IsEmpty(Window(Home).Property(AppSpotlight.Blur))</visible>
                     <include>Background_NotVideo</include>
+                    <control type="image">
+                        <texture colordiffuse="55000000">common/white.png</texture>
+                    </control>
                     <animation effect="fade" start="0" end="100" time="300" reversible="true">Visible</animation>
                     <animation effect="fade" start="100" end="0" time="200" reversible="true">Hidden</animation>
                 </control>

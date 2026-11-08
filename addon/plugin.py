@@ -470,6 +470,10 @@ def _app_group(group_id):
         feed_path = (app.get("feed_path") or "").strip()
         if feed_path:
             item.setProperty("KodiHome.LiveFeedPath", feed_path)
+        item.setProperty("KodiHome.SpotlightLogo", app_art.get("clearlogo", ""))
+        item.setProperty("KodiHome.SpotlightBackdrop", app_art.get("fanart", ""))
+        item.setProperty("KodiHome.SpotlightLabel", label)
+        item.setProperty("KodiHome.SpotlightReload", "%s:%s" % (package_name, int(time.time())))
         item.setInfo("video", {
             "title": label,
             "mediatype": "video",

@@ -221,13 +221,39 @@ ANDROID_APPS_PREFIX = ANDROID_APPS_PATH
 ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
 
 
+APP_CLEARLOGO_FILES = {
+    "appletv": "apple-tv.png",
+    "appletvplus": "apple-tv.png",
+    "itvx": "itvx.png",
+    "youtube": "youtube.png",
+    "youtubekids": "youtube.png",
+    "hbomax": "hbo-max.png",
+    "max": "hbo-max.png",
+    "channel4": "channel-4.png",
+    "all4": "channel-4.png",
+}
+
+
+def _default_app_clearlogo(app):
+    """Return bundled white brand artwork for recognized app titles."""
+    title = str(app.get("title") or "").casefold()
+    key = re.sub(r"[^a-z0-9]+", "", title)
+    filename = APP_CLEARLOGO_FILES.get(key)
+    if not filename:
+        return ""
+    path = xbmcvfs.translatePath(
+        "special://home/addons/%s/resources/app-logos/%s" % (ADDON_ID, filename)
+    )
+    return path if xbmcvfs.exists(path) else ""
+
+
 def _app_art(app, fallback_fanart=""):
     icon = app.get("icon_path") or ""
     return _art({
         "icon": icon,
         "thumb": icon,
         "poster": icon,
-        "clearlogo": app.get("clearlogo_path") or "",
+        "clearlogo": app.get("clearlogo_path") or _default_app_clearlogo(app),
         "fanart": app.get("fanart_path") or fallback_fanart,
     })
 
@@ -389,11 +415,12 @@ def _app_group(group_id):
         if label == package_name:
             label = _android_app_label(package_name)
         item = xbmcgui.ListItem(label=label, path=target)
-        item.setArt(_app_art(app, _matching_app_fanart(app, library_candidates)))
+        app_art = _app_art(app, _matching_app_fanart(app, library_candidates))
+        item.setArt(app_art)
         item.setProperty("KodiHome.AppTile", "true")
         item.setProperty(
             "KodiHome.HasClearLogo",
-            "true" if app.get("clearlogo_path") else "false",
+            "true" if app_art.get("clearlogo") else "false",
         )
         background_folder = app.get("fanart_folder_path") or _matching_app_fanart_folder(app, library_candidates)
         if background_folder:

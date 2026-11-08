@@ -495,6 +495,10 @@ def _app_group(group_id):
                 action="app_edit_feed",
                 package=package_name,
             )),
+            *([("Use YouTube public feed", _url(
+                action="app_youtube_feed",
+                package=package_name,
+            ))] if package_name == "com.google.android.youtube.tv" else []),
             ("Open live content feed", _url(
                 action="app_open_feed",
                 package=package_name,
@@ -748,6 +752,19 @@ def _edit_app_feed(params):
         return
     STORE.update_app_feed(package_name, feed_path)
     _notify("Live content feed saved" if feed_path else "Live content feed cleared")
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def _use_youtube_public_feed(params):
+    package_name = params.get("package", "")
+    if package_name != "com.google.android.youtube.tv":
+        _notify("This preset is for the YouTube app")
+        return
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    STORE.update_app_feed(package_name, YOUTUBE_PUBLIC_FEED_PATH)
+    _notify("YouTube public feed set")
     xbmc.executebuiltin("Container.Refresh")
 
 
@@ -1113,6 +1130,8 @@ def main():
         _edit_app_feed(params)
     elif action == "app_open_feed":
         _open_app_feed(params)
+    elif action == "app_youtube_feed":
+        _use_youtube_public_feed(params)
     elif action == "list" and params.get("name") == "continue":
         _continue_watching()
     elif action == "list" and params.get("name") == "up_next":

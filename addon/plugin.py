@@ -369,16 +369,7 @@ def _app_group(group_id):
         _app_groups()
         return
 
-    _folder(
-        "Add installed app",
-        _url(action="app_picker", group_id=group["group_id"]),
-    )
-    _folder(
-        "Rename group",
-        _url(action="app_rename_group", group_id=group["group_id"]),
-    )
-
-    apps = STORE.list_apps(group["group_id"])
+    # Keep app group folders and widgets to app tiles. Group management remains\n    # available from the Apps list and its context menu.\n    apps = STORE.list_apps(group["group_id"])
     library_candidates = _library_service_candidates()
     for app in apps:
         package_name = app["package_name"]

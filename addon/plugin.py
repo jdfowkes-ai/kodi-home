@@ -222,8 +222,13 @@ ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
 
 
 APP_CLEARLOGO_FILES = {
+    "netflix": "netflix.png",
+    "disneyplus": "disney-plus.png",
+    "primevideo": "prime-video.png",
+    "amazonprimevideo": "prime-video.png",
     "appletv": "apple-tv.png",
     "appletvplus": "apple-tv.png",
+    "bbciplayer": "bbc-iplayer.png",
     "itvx": "itvx.png",
     "youtube": "youtube.png",
     "youtubekids": "youtube.png",
@@ -231,6 +236,8 @@ APP_CLEARLOGO_FILES = {
     "max": "hbo-max.png",
     "channel4": "channel-4.png",
     "all4": "channel-4.png",
+    "now": "now.png",
+    "paramountplus": "paramount-plus.png",
 }
 
 

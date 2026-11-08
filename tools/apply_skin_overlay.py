@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.5"
+CUSTOM_ADDON_VERSION = "0.5.6"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -303,6 +303,126 @@ def apply_keep_changes_focus_overlay(skin_root: Path) -> None:
     dialog_file.write_text(updated, encoding="utf-8")
 
 
+def apply_app_spotlight_overlay(skin_root: Path) -> None:
+    """Switch the Home hero to the focused app's artwork and live feed."""
+    lists_file = skin_root / "1080i/Includes_Lists.xml"
+    lists = lists_file.read_text(encoding="utf-8")
+    start_marker = '    <include name="List_Widget_Row_HiddenButton_OnFocus">'
+    end_marker = '    <include name="List_Core">'
+    start = lists.find(start_marker)
+    end = lists.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0 or lists.find(start_marker, start + 1) >= 0:
+        raise RuntimeError("Could not locate the Arctic Fuse widget focus include")
+    block = lists[start:end]
+    if "KodiHome.LiveFeedPath" in block:
+        raise RuntimeError("Kodi Home app spotlight focus hooks are already present")
+    close_at = block.rfind("        </definition>")
+    if close_at < 0:
+        raise RuntimeError("Could not locate the Arctic Fuse widget focus definition end")
+    hooks = """            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Blur,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightBackdrop)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Logo,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightLogo)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Label,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightLabel)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Path,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Reload,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">Container.Update($VAR[Home_Spotlight_Content])</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(AppSpotlight.Loaded,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(TMDbHelper.WidgetContainer,301,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(AppSpotlight.Path,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(AppSpotlight.Reload,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(TMDbHelper.WidgetContainer,$PARAM[id],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Path,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Blur,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Logo,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Label,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Reload,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Loaded,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">SetProperty(TMDbHelper.WidgetContainer,$PARAM[id],Home)</onfocus>
+"""
+    block = block[:close_at] + hooks + block[close_at:]
+    lists = lists[:start] + block + lists[end:]
+    ET.fromstring(lists)
+    lists_file.write_text(lists, encoding="utf-8")
+
+    hubs_file = skin_root / "1080i/Includes_Hubs.xml"
+    hubs = hubs_file.read_text(encoding="utf-8")
+    marker = '    <include name="Hub_Spotlight_List">'
+    if hubs.count(marker) != 1 or 'name="Home_Spotlight_Content"' in hubs:
+        raise RuntimeError("Could not safely extend the Arctic Fuse Home spotlight variables")
+    variables = """    <variable name="Home_Spotlight_Content">
+        <value condition="!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))">$INFO[Window(Home).Property(AppSpotlight.Path)]</value>
+        <value>$INFO[Skin.String(HomeSwitcher.Home.Spotlight.Path)]</value>
+    </variable>
+    <variable name="Home_Spotlight_Target">
+        <value condition="!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))">videos</value>
+        <value>$INFO[Skin.String(HomeSwitcher.Home.Spotlight.Target)]</value>
+    </variable>
+
+"""
+    hubs = hubs.replace(marker, variables + marker, 1)
+    generic = """<include content="Hub_Spotlight_List" condition="!String.IsEmpty(Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Target)) + $PARAM[spotlight]">
+                <param name="window">$PARAM[window]</param>
+                <param name="content">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Path)]</param>
+                <param name="sortby">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.SortMethod)]</param>
+                <param name="sortorder">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.SortOrder)]</param>
+                <param name="target">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Target)]</param>
+                <param name="limit">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Limit)]</param>
+            </include>"""
+    if hubs.count(generic) != 1:
+        raise RuntimeError("Home spotlight list block mismatch")
+    home = """<include content="Hub_Spotlight_List" condition="$PARAM[spotlight] + String.IsEqual($PARAM[window],home)">
+                <param name="window">Home</param>
+                <param name="content">$VAR[Home_Spotlight_Content]</param>
+                <param name="sortby">$INFO[Skin.String(HomeSwitcher.Home.Spotlight.SortMethod)]</param>
+                <param name="sortorder">$INFO[Skin.String(HomeSwitcher.Home.Spotlight.SortOrder)]</param>
+                <param name="target">$VAR[Home_Spotlight_Target]</param>
+                <param name="limit">$INFO[Skin.String(HomeSwitcher.Home.Spotlight.Limit)]</param>
+            </include>
+            <include content="Hub_Spotlight_List" condition="!String.IsEqual($PARAM[window],home) + !String.IsEmpty(Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Target)) + $PARAM[spotlight]">
+                <param name="window">$PARAM[window]</param>
+                <param name="content">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Path)]</param>
+                <param name="sortby">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.SortMethod)]</param>
+                <param name="sortorder">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.SortOrder)]</param>
+                <param name="target">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Target)]</param>
+                <param name="limit">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Limit)]</param>
+            </include>"""
+    hubs = hubs.replace(generic, home, 1)
+    label = '<param name="label">$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Label),, ]</param>'
+    if hubs.count(label) != 1:
+        raise RuntimeError("Spotlight label marker mismatch")
+    hubs = hubs.replace(label, '<param name="label">$INFO[Window($PARAM[window]).Property(AppSpotlight.Label),, ]$INFO[Skin.String(HomeSwitcher.$PARAM[window].Spotlight.Label),, ]</param>', 1)
+    hs = hubs.find('    <include name="Hub_Spotlight">')
+    close_at = hubs.find('                <control type="group">', hs)
+    if hs < 0 or close_at < 0:
+        raise RuntimeError("Could not locate the Arctic Fuse Home spotlight body")
+    hero = """                <!-- Kodi Home focused app artwork and wordmark. -->
+                <control type="image" id="317">
+                    <left>0</left>
+                    <top>0</top>
+                    <width>1920</width>
+                    <height>1080</height>
+                    <aspectratio>scale</aspectratio>
+                    <texture background="true">$INFO[Window(Home).Property(AppSpotlight.Blur)]</texture>
+                    <visible>String.IsEqual($PARAM[window],home) + !String.IsEmpty(Window(Home).Property(AppSpotlight.Blur))</visible>
+                    <include>Background_NotVideo</include>
+                    <animation effect="fade" start="0" end="100" time="300" reversible="true">Visible</animation>
+                    <animation effect="fade" start="100" end="0" time="200" reversible="true">Hidden</animation>
+                </control>
+                <control type="image" id="313">
+                    <left>80</left>
+                    <top>90</top>
+                    <width>500</width>
+                    <height>180</height>
+                    <aspectratio>keep</aspectratio>
+                    <texture background="true">$INFO[Window(Home).Property(AppSpotlight.Logo)]</texture>
+                    <visible>String.IsEqual($PARAM[window],home) + !String.IsEmpty(Window(Home).Property(AppSpotlight.Logo))</visible>
+                </control>
+
+"""
+    hubs = hubs[:close_at] + hero + hubs[close_at:]
+    ET.fromstring(hubs)
+    hubs_file.write_text(hubs, encoding="utf-8")
+
+
 def apply_overlay(skin_root: Path) -> None:
     addon_xml = skin_root / "addon.xml"
     if not addon_xml.is_file():
@@ -323,6 +443,7 @@ def apply_overlay(skin_root: Path) -> None:
 
     apply_app_tile_overlay(skin_root)
     apply_app_widget_tile_overlay(skin_root)
+    apply_app_spotlight_overlay(skin_root)
     apply_keep_changes_focus_overlay(skin_root)
     apply_app_background_overlay(skin_root)
     apply_app_background_slideshow_overlay(skin_root)
@@ -340,7 +461,7 @@ def apply_overlay(skin_root: Path) -> None:
     addon_tree.write(addon_xml, encoding="UTF-8", xml_declaration=True)
 
     print(
-        f"Applied Kodi Home info and app tile overlays to Arctic Fuse {BASE_VERSION}: "
+        f"Applied Kodi Home info, app tile, and app spotlight overlays to Arctic Fuse {BASE_VERSION}: "
         f"{len(overlay_files)} files and {len(assets)} certificate badges."
     )
 

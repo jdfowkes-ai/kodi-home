@@ -6,6 +6,7 @@ import os
 import random
 import re
 import sys
+import time
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import xbmc
@@ -224,6 +225,7 @@ ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
 APP_CLEARLOGO_FILES = {
     "netflix": "netflix.png",
     "disneyplus": "disney-plus.png",
+    "disney": "disney-plus.png",
     "primevideo": "prime-video.png",
     "amazonprimevideo": "prime-video.png",
     "appletv": "apple-tv.png",
@@ -238,6 +240,7 @@ APP_CLEARLOGO_FILES = {
     "all4": "channel-4.png",
     "now": "now.png",
     "paramountplus": "paramount-plus.png",
+    "paramount": "paramount-plus.png",
 }
 
 
@@ -248,9 +251,8 @@ def _default_app_clearlogo(app):
     filename = APP_CLEARLOGO_FILES.get(key)
     if not filename:
         return ""
-    path = xbmcvfs.translatePath(
-        "special://home/addons/%s/resources/app-logos/%s" % (ADDON_ID, filename)
-    )
+    addon_path = xbmcvfs.translatePath(ADDON.getAddonInfo("path"))
+    path = os.path.join(addon_path, "resources", "app-logos", filename)
     return path if xbmcvfs.exists(path) else ""
 
 
@@ -266,26 +268,20 @@ def _app_art(app, fallback_fanart=""):
 
 
 def _library_service_candidates():
-    """Read Kodi library artwork and studio metadata for app-matched backdrops."""
-    candidates = []
-    for method, result_key in (
-        ("VideoLibrary.GetMovies", "movies"),
-        ("VideoLibrary.GetTVShows", "tvshows"),
-    ):
-        try:
-            result = _rpc(method, {
-                "properties": ["art", "studio"],
-                "limits": {"start": 0, "end": 1000},
-                "sort": {"method": "title", "order": "ascending"},
-            })
-            candidates.extend(result.get(result_key, []))
-        except Exception as exc:
-            xbmc.log(
-                "Kodi Home: app backdrop library lookup failed for %s: %s" % (method, exc),
-                xbmc.LOGDEBUG,
-            )
-    return candidates
+    """Return cached Kodi artwork without blocking home-widget loading on a library scan."""
+    profile = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
+    cache_path = os.path.join(profile, "app-library-fanart-cache.json")
+    try:
+        if os.path.isfile(cache_path) and time.time() - os.path.getmtime(cache_path) < APP_LIBRARY_FANART_CACHE_SECONDS:
+            with open(cache_path, "r", encoding="utf-8") as handle:
+                cached = json.load(handle)
+            if isinstance(cached, list):
+                return cached
+    except Exception as exc:
+        xbmc.log("Kodi Home: app fanart cache read failed: %s" % exc, xbmc.LOGDEBUG)
 
+    # The service refreshes this cache in the background after Kodi has settled.
+    return []
 
 def _matching_app_fanart_matches(app, candidates):
     """Return unique fanart URLs whose studio metadata matches this app brand."""
@@ -336,6 +332,8 @@ def _matching_app_fanart_folder(app, candidates):
             return ""
         existing_dirs, existing_files = xbmcvfs.listdir(folder)
         cached_count = len(existing_files)
+        if cached_count:
+            return folder
         for fanart in random.sample(matches, min(12, len(matches))):
             if cached_count >= 12:
                 break

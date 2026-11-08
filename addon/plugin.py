@@ -483,12 +483,28 @@ def _app_group(group_id):
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
         feed_path = (app.get("feed_path") or _default_app_feed(app)).strip()
+        reload_key = "%s:%s" % (package_name, int(time.time()))
+        spotlight_label = label
+        if package_name == "com.google.android.youtube.tv":
+            spotlight_label = "YouTube Trending"
+        elif package_name == "com.google.android.tv":
+            spotlight_label = "YouTube Trending"
+        elif feed_path:
+            spotlight_label = "%s Feed" % label
         if feed_path:
             item.setProperty("KodiHome.LiveFeedPath", feed_path)
+            # Arctic Fuse reads these item properties to replace its Home hero
+            # with the selected app's live add-on feed.
+            item.setProperty("app_spotlight_path", feed_path)
+            item.setProperty("app_spotlight_label", spotlight_label)
+            item.setProperty("app_spotlight_reload", reload_key)
         item.setProperty("KodiHome.SpotlightLogo", app_art.get("clearlogo", ""))
         item.setProperty("KodiHome.SpotlightBackdrop", app_art.get("fanart", ""))
         item.setProperty("KodiHome.SpotlightLabel", label)
-        item.setProperty("KodiHome.SpotlightReload", "%s:%s" % (package_name, int(time.time())))
+        item.setProperty("KodiHome.SpotlightReload", reload_key)
+        # Keep the property names expected by Arctic Fuse's app spotlight.
+        item.setProperty("app_spotlight_logo", app_art.get("clearlogo", ""))
+        item.setProperty("app_spotlight_blur", app_art.get("fanart", ""))
         item.setInfo("video", {
             "title": label,
             "mediatype": "video",

@@ -13,6 +13,6 @@ This is the source for the local playback engine, personal lists, and NVIDIA Shi
 - Watchlist storage supports add/update, explicit removal, and Released / Unreleased / All queries. Opening a Watchlist folder refreshes title, year, release date, and artwork from each linked Kodi library entry so newly available library metadata updates its folder automatically. Entries without a release date stay in Unreleased until metadata is available.
 - The database is stored in Kodi's per-add-on profile.
 
-Apps source supports installed-app discovery, editable groups, app launch, custom logos and backgrounds, rotating image folders, library-matched fanart fallback, and configurable live content feeds. Version 0.5.14 adds a BBC iPlayer Most Popular feed preset when the Kodi iPlayer WWW add-on is installed, alongside the YouTube public Trending preset.
+Apps source supports installed-app discovery, editable groups, app launch, custom logos and backgrounds, rotating image folders, library-matched fanart fallback, and configurable live content feeds. Version 0.5.15 aligns app tile spotlight properties with Arctic Fuse, so the focused app can replace the standard Home spotlight with its feed. Kodi Home includes a YouTube public Trending preset and a BBC iPlayer Most Popular preset when the Kodi iPlayer WWW add-on is installed.
 
-GitHub Actions can package the add-on. The 0.5.14 BBC iPlayer feed preset still needs verification on the NVIDIA Shield.
+GitHub Actions can package the add-on. Feed rendering and Home row spacing still need verification on the NVIDIA Shield.

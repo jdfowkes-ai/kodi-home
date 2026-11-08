@@ -256,13 +256,25 @@ def _default_app_clearlogo(app):
     return path if xbmcvfs.exists(path) else ""
 
 
+def _app_clearlogo(app):
+    """Use a valid custom logo, then fall back to the bundled brand logo."""
+    custom_path = str(app.get("clearlogo_path") or "").strip()
+    if custom_path:
+        if custom_path.startswith(("http://", "https://", "image://")):
+            return custom_path
+        translated = xbmcvfs.translatePath(custom_path)
+        if xbmcvfs.exists(translated):
+            return translated
+    return _default_app_clearlogo(app)
+
+
 def _app_art(app, fallback_fanart=""):
     icon = app.get("icon_path") or ""
     return _art({
         "icon": icon,
         "thumb": icon,
         "poster": icon,
-        "clearlogo": app.get("clearlogo_path") or _default_app_clearlogo(app),
+        "clearlogo": _app_clearlogo(app),
         "fanart": app.get("fanart_path") or fallback_fanart,
     })
 

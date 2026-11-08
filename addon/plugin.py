@@ -385,7 +385,10 @@ def _app_group(group_id):
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):
             continue
         target = _url(action="launch_app", package=package_name)
-        item = xbmcgui.ListItem(label=app["title"], path=target)
+        label = app.get("title") or package_name
+        if label == package_name:
+            label = _android_app_label(package_name)
+        item = xbmcgui.ListItem(label=label, path=target)
         item.setArt(_app_art(app, _matching_app_fanart(app, library_candidates)))
         item.setProperty("KodiHome.AppTile", "true")
         item.setProperty(
@@ -396,7 +399,7 @@ def _app_group(group_id):
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
         item.setInfo("video", {
-            "title": app["title"],
+            "title": label,
             "mediatype": "video",
             "plot": "",
         })

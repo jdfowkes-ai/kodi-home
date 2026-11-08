@@ -28,7 +28,7 @@ Automatic online retrieval of branded shows or movie artwork, and video splash c
 
 ## Group widgets
 
-Group folders and widgets show only the apps in that group. Use **Add installed app** from the Apps list to add apps to a group. Rename or delete a group from its context menu in the Apps list; rename, change artwork, or remove an app from the app tile context menu.
+Group folders and widgets show only the apps in that group. If a group is empty, it shows one **Add apps to [group]** tile; that tile disappears after apps are added. Use **Add installed app** from the Apps list to add apps to a group. Rename or delete a group from its context menu in the Apps list; rename, change artwork, or remove an app from the app tile context menu.
 
 ## Paths
 

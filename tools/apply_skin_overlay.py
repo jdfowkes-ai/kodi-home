@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.3"
+CUSTOM_ADDON_VERSION = "0.5.4"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -73,7 +73,7 @@ def apply_app_tile_overlay(skin_root: Path) -> None:
             <height>612</height>
             <width>612</width>
             <control type="image">
-                <texture colordiffuse="D9707070">common/white.png</texture>
+                <texture colordiffuse="B85C5C5C">common/white.png</texture>
             </control>
             <control type="image">
                 <width>80%</width>
@@ -134,7 +134,7 @@ def apply_app_widget_tile_overlay(skin_root: Path) -> None:
                         <width>$PARAM[item_w]</width>
                         <height>$PARAM[item_h]</height>
                         <control type="image">
-                            <texture colordiffuse="D9707070">common/white.png</texture>
+                            <texture colordiffuse="B85C5C5C">common/white.png</texture>
                         </control>
                         <control type="image">
                             <width>80%</width>

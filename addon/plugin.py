@@ -468,6 +468,8 @@ def _app_group(group_id):
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
         feed_path = (app.get("feed_path") or "").strip()
+        if not feed_path and package_name == "com.google.android.youtube.tv":
+            feed_path = YOUTUBE_PUBLIC_FEED_PATH
         if feed_path:
             item.setProperty("KodiHome.LiveFeedPath", feed_path)
         item.setProperty("KodiHome.SpotlightLogo", app_art.get("clearlogo", ""))

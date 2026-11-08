@@ -617,14 +617,20 @@ class LocalStore:
             else:
                 rows = connection.execute(
                     """
-                    SELECT apps.package_name, apps.title, apps.icon_path,
-                           apps.clearlogo_path, apps.fanart_path,
-                           apps.fanart_folder_path, members.sort_order
-                    FROM apps
-                    JOIN app_group_members AS members
-                      ON members.package_name = apps.package_name
+                    SELECT members.package_name,
+                           COALESCE(NULLIF(apps.title, ''), members.package_name) AS title,
+                           COALESCE(NULLIF(apps.icon_path, ''),
+                                    'androidapp://sources/apps/' || members.package_name || '.png') AS icon_path,
+                           COALESCE(apps.clearlogo_path, '') AS clearlogo_path,
+                           COALESCE(apps.fanart_path, '') AS fanart_path,
+                           COALESCE(apps.fanart_folder_path, '') AS fanart_folder_path,
+                           members.sort_order
+                    FROM app_group_members AS members
+                    LEFT JOIN apps
+                      ON apps.package_name = members.package_name
                     WHERE members.group_id = ?
-                    ORDER BY members.sort_order, apps.title COLLATE NOCASE
+                    ORDER BY members.sort_order,
+                             COALESCE(NULLIF(apps.title, ''), members.package_name) COLLATE NOCASE
                     """,
                     (int(group_id),),
                 ).fetchall()

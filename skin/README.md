@@ -7,7 +7,7 @@ These files are a focused overlay for the upstream Arctic Fuse 3.4.18 source. Th
 - Adds the genre to the video information line.
 - Uses UK certificate badges for recognized UK MPAA values, retaining the text fallback for other ratings.
 - Migrates the previous Trakt and Metacritic defaults to IMDb and Rotten Tomatoes Critic for Movies and TV Shows.
-- Styles Kodi Home app tiles in square browsing views and square Home widget rows with a slightly transparent mid-grey background, a centred clear logo, and a white app-name fallback.
+- Styles Kodi Home app tiles in square browsing views and square Home widget rows with a darker, more transparent grey background, a centred clear logo, and a white app-name fallback.
 - Uses each highlighted app's own fanart as the Apps hub background, ahead of TMDb Helper background properties.
 - Prioritizes Kodi library item fanart for Kodi Home Library widget rows, including Umbrella `.strm` entries.
 - Optionally rotates images from a per-app folder at eight-second intervals with a crossfade, limited to the selected Apps tile.

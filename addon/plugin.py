@@ -25,6 +25,7 @@ PARAMOUNT_PLUS_MARK_B64 = "iVBORw0KGgoAAAANSUhEUgAAAlgAAAH0CAYAAADhUFPUAABA9UlEQ
 ADDON_ID = "plugin.video.kodihome"
 PLUGIN_URL = "plugin://%s/" % ADDON_ID
 YOUTUBE_PUBLIC_FEED_PATH = "plugin://plugin.video.youtube/special/popular_right_now"
+BBC_IPLAYER_POPULAR_FEED_PATH = "plugin://plugin.video.iplayerwww/?mode=105"
 APP_FEED_PATH_RE = re.compile(r"^plugin://[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./%?=&+%-]*)?$")
 HANDLE = int(sys.argv[1])
 
@@ -50,6 +51,20 @@ APP_BACKGROUND_STUDIO_MATCHERS = {
 }
 ADDON = xbmcaddon.Addon(ADDON_ID)
 STORE = LocalStore(ADDON)
+
+
+def _default_app_feed(app):
+    """Return a live Kodi add-on feed preset when its provider add-on is installed."""
+    package_name = str(app.get("package_name") or "")
+    if package_name == "com.google.android.youtube.tv":
+        return YOUTUBE_PUBLIC_FEED_PATH
+
+    title_key = re.sub(r"[^a-z0-9]+", "", str(app.get("title") or "").casefold())
+    if title_key in ("bbciplayer", "iplayer", "iplayerwww") and xbmc.getCondVisibility(
+        "System.HasAddon(plugin.video.iplayerwww)"
+    ):
+        return BBC_IPLAYER_POPULAR_FEED_PATH
+    return ""
 
 
 def _url(**params):
@@ -467,9 +482,7 @@ def _app_group(group_id):
         background_folder = app.get("fanart_folder_path") or _matching_app_fanart_folder(app, library_candidates)
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
-        feed_path = (app.get("feed_path") or "").strip()
-        if not feed_path and package_name == "com.google.android.youtube.tv":
-            feed_path = YOUTUBE_PUBLIC_FEED_PATH
+        feed_path = (app.get("feed_path") or _default_app_feed(app)).strip()
         if feed_path:
             item.setProperty("KodiHome.LiveFeedPath", feed_path)
         item.setProperty("KodiHome.SpotlightLogo", app_art.get("clearlogo", ""))
@@ -505,6 +518,10 @@ def _app_group(group_id):
                 action="app_youtube_feed",
                 package=package_name,
             ))] if package_name == "com.google.android.youtube.tv" else []),
+            *([("Use BBC iPlayer popular feed", _url(
+                action="app_iplayer_feed",
+                package=package_name,
+            ))] if _default_app_feed(app) == BBC_IPLAYER_POPULAR_FEED_PATH else []),
             ("Open live content feed", _url(
                 action="app_open_feed",
                 package=package_name,
@@ -746,9 +763,7 @@ def _edit_app_feed(params):
     if not app:
         _notify("App not found")
         return
-    default_path = app.get("feed_path") or ""
-    if not default_path and package_name == "com.google.android.youtube.tv":
-        default_path = YOUTUBE_PUBLIC_FEED_PATH
+    default_path = app.get("feed_path") or _default_app_feed(app)
     feed_path = xbmcgui.Dialog().input(
         "Kodi content feed path",
         defaultt=default_path,
@@ -774,6 +789,23 @@ def _use_youtube_public_feed(params):
     xbmc.executebuiltin("Container.Refresh")
 
 
+def _use_bbc_iplayer_popular_feed(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    app = next((row for row in STORE.list_apps() if row["package_name"] == package_name), None)
+    if not app:
+        _notify("App not found")
+        return
+    if _default_app_feed(app) != BBC_IPLAYER_POPULAR_FEED_PATH:
+        _notify("Install the Kodi iPlayer WWW add-on to use this feed")
+        return
+    STORE.update_app_feed(package_name, BBC_IPLAYER_POPULAR_FEED_PATH)
+    _notify("BBC iPlayer popular feed set")
+    xbmc.executebuiltin("Container.Refresh")
+
+
 def _open_app_feed(params):
     package_name = params.get("package", "")
     if not ANDROID_PACKAGE_RE.fullmatch(package_name):
@@ -783,7 +815,7 @@ def _open_app_feed(params):
     if not app:
         _notify("App not found")
         return
-    feed_path = (app.get("feed_path") or "").strip()
+    feed_path = (app.get("feed_path") or _default_app_feed(app)).strip()
     if not feed_path:
         _notify("Set a live feed path for this app first")
         return
@@ -1138,6 +1170,8 @@ def main():
         _open_app_feed(params)
     elif action == "app_youtube_feed":
         _use_youtube_public_feed(params)
+    elif action == "app_iplayer_feed":
+        _use_bbc_iplayer_popular_feed(params)
     elif action == "list" and params.get("name") == "continue":
         _continue_watching()
     elif action == "list" and params.get("name") == "up_next":

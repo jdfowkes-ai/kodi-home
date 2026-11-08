@@ -9,7 +9,7 @@ These files are a focused overlay for the upstream Arctic Fuse 3.4.18 source. Th
 - Migrates the previous Trakt and Metacritic defaults to IMDb and Rotten Tomatoes Critic for Movies and TV Shows.
 - Styles Kodi Home app tiles in square browsing views and square Home widget rows with a darker, more transparent grey background, a centred clear logo, and a white app-name fallback.
 - Uses each highlighted app's own fanart as the Apps hub background, ahead of TMDb Helper background properties.
-- Switches the Home spotlight to a focused Kodi Home app's configured content feed and places its own background and white service wordmark behind the spotlight information.
+- Switches the Home spotlight to a focused Kodi Home app's configured content feed, shows that feed's title and information, uses its item fanart when available (falling back to the app's own fanart), and places the white service wordmark behind the spotlight information.
 - Prioritizes Kodi library item fanart for Kodi Home Library widget rows, including Umbrella `.strm` entries.
 - Optionally rotates images from a per-app folder at eight-second intervals with a crossfade, limited to the selected Apps tile.
 

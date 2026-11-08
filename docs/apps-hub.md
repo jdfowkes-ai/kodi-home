@@ -34,3 +34,8 @@ Group folders and widgets show only the apps in that group. Use **Add installed 
 
 - Apps group list: `plugin://plugin.video.kodihome/?action=apps`
 - A group as a widget, for example Home Apps: `plugin://plugin.video.kodihome/?action=app_group&group_name=Home+Apps`
+
+
+## Home loading and app artwork
+
+App-group widgets now read cached library artwork only. On a cold start or expired cache, Kodi Home skips the library-wide artwork scan so Kodi home can open without waiting on up to 1,000 movies and 1,000 shows. A previously prepared app background folder is reused directly; new backgrounds remain available through each app’s custom artwork or rotating-folder options. Automatic fanart folder preparation is capped at four images per app.

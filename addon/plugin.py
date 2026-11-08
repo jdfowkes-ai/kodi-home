@@ -487,8 +487,6 @@ def _app_group(group_id):
         spotlight_label = label
         if package_name == "com.google.android.youtube.tv":
             spotlight_label = "YouTube Trending"
-        elif package_name == "com.google.android.tv":
-            spotlight_label = "YouTube Trending"
         elif feed_path:
             spotlight_label = "%s Feed" % label
         if feed_path:

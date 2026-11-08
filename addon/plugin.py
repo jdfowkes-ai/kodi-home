@@ -24,6 +24,8 @@ PARAMOUNT_PLUS_MARK_B64 = "iVBORw0KGgoAAAANSUhEUgAAAlgAAAH0CAYAAADhUFPUAABA9UlEQ
 
 ADDON_ID = "plugin.video.kodihome"
 PLUGIN_URL = "plugin://%s/" % ADDON_ID
+YOUTUBE_PUBLIC_FEED_PATH = "plugin://plugin.video.youtube/special/popular_right_now"
+APP_FEED_PATH_RE = re.compile(r"^plugin://[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./%?=&+%-]*)?$")
 HANDLE = int(sys.argv[1])
 
 
@@ -465,6 +467,13 @@ def _app_group(group_id):
         background_folder = app.get("fanart_folder_path") or _matching_app_fanart_folder(app, library_candidates)
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
+        feed_path = (app.get("feed_path") or "").strip()
+        if feed_path:
+            item.setProperty("KodiHome.LiveFeedPath", feed_path)
+        item.setProperty("KodiHome.SpotlightLogo", app_art.get("clearlogo", ""))
+        item.setProperty("KodiHome.SpotlightBackdrop", app_art.get("fanart", ""))
+        item.setProperty("KodiHome.SpotlightLabel", label)
+        item.setProperty("KodiHome.SpotlightReload", "%s:%s" % (package_name, int(time.time())))
         item.setInfo("video", {
             "title": label,
             "mediatype": "video",
@@ -485,6 +494,18 @@ def _app_group(group_id):
                 action="app_edit_art",
                 package=package_name,
                 field="fanart",
+            )),
+            ("Set live content feed", _url(
+                action="app_edit_feed",
+                package=package_name,
+            )),
+            *([("Use YouTube public feed", _url(
+                action="app_youtube_feed",
+                package=package_name,
+            ))] if package_name == "com.google.android.youtube.tv" else []),
+            ("Open live content feed", _url(
+                action="app_open_feed",
+                package=package_name,
             )),
             ("Choose rotating background folder", _url(
                 action="app_edit_background_folder",
@@ -712,6 +733,62 @@ def _edit_app_art(params):
         STORE.update_app_artwork(package_name, field, selected)
         _notify("App artwork updated")
         xbmc.executebuiltin("Container.Refresh")
+
+
+def _edit_app_feed(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    app = next((row for row in STORE.list_apps() if row["package_name"] == package_name), None)
+    if not app:
+        _notify("App not found")
+        return
+    default_path = app.get("feed_path") or ""
+    if not default_path and package_name == "com.google.android.youtube.tv":
+        default_path = YOUTUBE_PUBLIC_FEED_PATH
+    feed_path = xbmcgui.Dialog().input(
+        "Kodi content feed path",
+        defaultt=default_path,
+    ).strip()
+    if feed_path and not APP_FEED_PATH_RE.fullmatch(feed_path):
+        _notify("Enter a Kodi plugin:// feed path")
+        return
+    STORE.update_app_feed(package_name, feed_path)
+    _notify("Live content feed saved" if feed_path else "Live content feed cleared")
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def _use_youtube_public_feed(params):
+    package_name = params.get("package", "")
+    if package_name != "com.google.android.youtube.tv":
+        _notify("This preset is for the YouTube app")
+        return
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    STORE.update_app_feed(package_name, YOUTUBE_PUBLIC_FEED_PATH)
+    _notify("YouTube public feed set")
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def _open_app_feed(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    app = next((row for row in STORE.list_apps() if row["package_name"] == package_name), None)
+    if not app:
+        _notify("App not found")
+        return
+    feed_path = (app.get("feed_path") or "").strip()
+    if not feed_path:
+        _notify("Set a live feed path for this app first")
+        return
+    if not APP_FEED_PATH_RE.fullmatch(feed_path):
+        _notify("The saved live feed path is invalid")
+        return
+    xbmc.executebuiltin("Container.Update(%s)" % feed_path)
 
 
 def _edit_app_background_folder(params):
@@ -1053,6 +1130,12 @@ def main():
         _edit_app_art(params)
     elif action == "app_edit_background_folder":
         _edit_app_background_folder(params)
+    elif action == "app_edit_feed":
+        _edit_app_feed(params)
+    elif action == "app_open_feed":
+        _open_app_feed(params)
+    elif action == "app_youtube_feed":
+        _use_youtube_public_feed(params)
     elif action == "list" and params.get("name") == "continue":
         _continue_watching()
     elif action == "list" and params.get("name") == "up_next":

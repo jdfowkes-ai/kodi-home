@@ -111,6 +111,7 @@ class LocalStore:
                     clearlogo_path TEXT NOT NULL DEFAULT '',
                     fanart_path TEXT NOT NULL DEFAULT '',
                     fanart_folder_path TEXT NOT NULL DEFAULT '',
+                    feed_path TEXT NOT NULL DEFAULT '',
                     created_at INTEGER NOT NULL
                 );
 
@@ -158,6 +159,10 @@ class LocalStore:
                 connection.execute(
                     "ALTER TABLE apps ADD COLUMN fanart_folder_path TEXT NOT NULL DEFAULT ''"
                 )
+            if "feed_path" not in app_columns:
+                connection.execute(
+                    "ALTER TABLE apps ADD COLUMN feed_path TEXT NOT NULL DEFAULT ''"
+                )
             for table in ("playback_progress", "watched_history", "up_next_items"):
                 columns = {
                     row["name"]
@@ -173,7 +178,7 @@ class LocalStore:
                         "INSERT OR IGNORE INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",
                         (name, sort_order, int(time.time())),
                     )
-            connection.execute("PRAGMA user_version = 7")
+            connection.execute("PRAGMA user_version = 8")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -610,7 +615,7 @@ class LocalStore:
                 rows = connection.execute(
                     """
                     SELECT package_name, title, icon_path, clearlogo_path, fanart_path,
-                           fanart_folder_path
+                           fanart_folder_path, feed_path
                     FROM apps ORDER BY title COLLATE NOCASE
                     """
                 ).fetchall()
@@ -624,6 +629,7 @@ class LocalStore:
                            COALESCE(apps.clearlogo_path, '') AS clearlogo_path,
                            COALESCE(apps.fanart_path, '') AS fanart_path,
                            COALESCE(apps.fanart_folder_path, '') AS fanart_folder_path,
+                           COALESCE(apps.feed_path, '') AS feed_path,
                            members.sort_order
                     FROM app_group_members AS members
                     LEFT JOIN apps
@@ -671,6 +677,15 @@ class LocalStore:
                     (group_id, package_name, sort_order),
                 )
         return True
+
+    def update_app_feed(self, package_name, feed_path):
+        """Save or clear one app's Kodi plugin content-feed path."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "UPDATE apps SET feed_path = ? WHERE package_name = ?",
+                (str(feed_path or "").strip(), str(package_name)),
+            )
+            return cursor.rowcount > 0
 
     def remove_app(self, package_name, group_id=None):
         """Remove an app from one group, or remove it from every group."""

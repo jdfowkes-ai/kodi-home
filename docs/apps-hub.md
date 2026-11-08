@@ -26,6 +26,10 @@ Each app keeps its Android icon and can have a custom clear logo and fanart imag
 
 Automatic online retrieval of branded shows or movie artwork, and video splash clips, remain pending. User-selected rotating folders use images already available in a Kodi picture source. Automatically matched folders use fanart already present in Kodi's video library. This feature is source code only; installation and Shield verification have not happened yet.
 
+## Group widgets
+
+Group folders and widgets show only the apps in that group. Use **Add installed app** from the Apps list to add apps to a group. Rename or delete a group from its context menu in the Apps list; rename, change artwork, or remove an app from the app tile context menu.
+
 ## Paths
 
 - Apps group list: `plugin://plugin.video.kodihome/?action=apps`

@@ -178,7 +178,7 @@ class LocalStore:
                         "INSERT OR IGNORE INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",
                         (name, sort_order, int(time.time())),
                     )
-            connection.execute("PRAGMA user_version = 7")
+            connection.execute("PRAGMA user_version = 8")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""

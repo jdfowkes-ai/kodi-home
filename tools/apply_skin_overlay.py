@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.6"
+CUSTOM_ADDON_VERSION = "0.5.7"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -324,8 +324,14 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Label,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightLabel)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Path,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Reload,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(AppSpotlight.Refreshing,True,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(AppSpotlight.ReturnItem,$ESCINFO[$PARAM[container]ListItemNo],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetFocus(301)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">Container.Update($VAR[Home_Spotlight_Content])</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(AppSpotlight.Loaded,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">ClearProperty(AppSpotlight.Refreshing,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(TMDbHelper.WidgetContainer,$PARAM[id],Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetFocus($PARAM[id],$INFO[Window(Home).Property(AppSpotlight.ReturnItem)])</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(TMDbHelper.WidgetContainer,301,Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(AppSpotlight.Path,Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(AppSpotlight.Reload,Home)</onfocus>
@@ -345,6 +351,26 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
 
     hubs_file = skin_root / "1080i/Includes_Hubs.xml"
     hubs = hubs_file.read_text(encoding="utf-8")
+    spotlight_start = hubs.find('    <include name="Hub_Spotlight_List">')
+    spotlight_end = hubs.find('    <include name="Hub_Window_Side_Slide_Animation">', spotlight_start)
+    if spotlight_start < 0 or spotlight_end < 0:
+        raise RuntimeError("Could not locate the Arctic Fuse spotlight list include")
+    spotlight_block = hubs[spotlight_start:spotlight_end]
+    focus_hooks = (
+        '<onfocus>SetProperty(TMDbHelper.WidgetContainer,301,$PARAM[window])</onfocus>',
+        '<onfocus condition="Integer.IsEqual(Container(301).NumItems,0)">SetFocus(300)</onfocus>',
+        '<onfocus condition="!Integer.IsEqual(Container(301).NumItems,0)">SetFocus(311)</onfocus>',
+    )
+    guarded_hooks = (
+        '<onfocus condition="String.IsEmpty(Window(Home).Property(AppSpotlight.Refreshing))">SetProperty(TMDbHelper.WidgetContainer,301,$PARAM[window])</onfocus>',
+        '<onfocus condition="String.IsEmpty(Window(Home).Property(AppSpotlight.Refreshing)) + Integer.IsEqual(Container(301).NumItems,0)">SetFocus(300)</onfocus>',
+        '<onfocus condition="String.IsEmpty(Window(Home).Property(AppSpotlight.Refreshing)) + !Integer.IsEqual(Container(301).NumItems,0)">SetFocus(311)</onfocus>',
+    )
+    for old_hook, new_hook in zip(focus_hooks, guarded_hooks):
+        if spotlight_block.count(old_hook) != 1:
+            raise RuntimeError("Could not safely guard the Arctic Fuse spotlight focus hook")
+        spotlight_block = spotlight_block.replace(old_hook, new_hook, 1)
+    hubs = hubs[:spotlight_start] + spotlight_block + hubs[spotlight_end:]
     marker = '    <include name="Hub_Spotlight_List">'
     if hubs.count(marker) != 1 or 'name="Home_Spotlight_Content"' in hubs:
         raise RuntimeError("Could not safely extend the Arctic Fuse Home spotlight variables")

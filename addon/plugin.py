@@ -782,11 +782,9 @@ def _browse_app_feed(params):
         _notify("App not found")
         return
 
-    default_path = (
-        app.get("feed_path")
-        or _default_app_feed(app)
-        or "plugin://plugin.video.umbrella/"
-    )
+    # Start at Kodi's video-source root so a stale saved feed cannot trap
+    # the user in its old list. Kodi returns the default value on Cancel;
+    # with an empty default, cancellation is unambiguous.
     selected = xbmcgui.Dialog().browse(
         0,
         "Choose a folder inside a Kodi video add-on",
@@ -794,7 +792,7 @@ def _browse_app_feed(params):
         "",
         False,
         False,
-        default_path,
+        "",
     )
     if not selected:
         return

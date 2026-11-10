@@ -782,9 +782,10 @@ def _browse_app_feed(params):
         _notify("App not found")
         return
 
-    # Start at Kodi's video-source root so a stale saved feed cannot trap
-    # the user in its old list. Kodi returns the default value on Cancel;
-    # with an empty default, cancellation is unambiguous.
+    # Start at Kodi's Videos shortcut root, where Add-ons is one of the
+    # visible choices. A non-plugin root path also lets cancellation be
+    # distinguished from a selected add-on folder.
+    browse_root = "library://video/"
     selected = xbmcgui.Dialog().browse(
         0,
         "Choose a folder inside a Kodi video add-on",
@@ -792,11 +793,14 @@ def _browse_app_feed(params):
         "",
         False,
         False,
-        "",
+        browse_root,
     )
     if not selected:
         return
     selected = str(selected).strip()
+    # Kodi returns the default path when the browser is closed without a choice.
+    if selected == browse_root:
+        return
     if not APP_FEED_PATH_RE.fullmatch(selected):
         _notify("Choose a folder inside a Kodi video add-on")
         return

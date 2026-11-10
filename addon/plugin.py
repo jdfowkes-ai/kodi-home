@@ -524,7 +524,11 @@ def _app_group(group_id):
                 package=package_name,
                 field="fanart",
             )),
-            ("Set live content feed", _url(
+            ("Browse Kodi folders for live content feed", _url(
+                action="app_browse_feed",
+                package=package_name,
+            )),
+            ("Enter live content feed path", _url(
                 action="app_edit_feed",
                 package=package_name,
             )),
@@ -766,6 +770,42 @@ def _edit_app_art(params):
         STORE.update_app_artwork(package_name, field, selected)
         _notify("App artwork updated")
         xbmc.executebuiltin("Container.Refresh")
+
+
+def _browse_app_feed(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        return
+    app = next((row for row in STORE.list_apps() if row["package_name"] == package_name), None)
+    if not app:
+        _notify("App not found")
+        return
+
+    default_path = (
+        app.get("feed_path")
+        or _default_app_feed(app)
+        or "plugin://plugin.video.umbrella/"
+    )
+    selected = xbmcgui.Dialog().browse(
+        0,
+        "Choose a folder inside a Kodi video add-on",
+        "video",
+        "",
+        False,
+        False,
+        default_path,
+    )
+    if not selected:
+        return
+    selected = str(selected).strip()
+    if not APP_FEED_PATH_RE.fullmatch(selected):
+        _notify("Choose a folder inside a Kodi video add-on")
+        return
+
+    STORE.update_app_feed(package_name, selected)
+    _notify("Live content feed saved")
+    xbmc.executebuiltin("Container.Refresh")
 
 
 def _edit_app_feed(params):
@@ -1178,6 +1218,8 @@ def main():
         _edit_app_art(params)
     elif action == "app_edit_background_folder":
         _edit_app_background_folder(params)
+    elif action == "app_browse_feed":
+        _browse_app_feed(params)
     elif action == "app_edit_feed":
         _edit_app_feed(params)
     elif action == "app_open_feed":

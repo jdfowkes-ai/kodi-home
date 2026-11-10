@@ -881,6 +881,31 @@ def _open_app_feed(params):
     xbmc.executebuiltin("Container.Update(%s)" % feed_path)
 
 
+
+def _refresh_app_spotlight():
+    """Refresh the hidden Home Spotlight list for the selected app without leaving it focused."""
+    home = xbmcgui.Window(10000)
+    feed_path = home.getProperty("AppSpotlight.Path").strip()
+    if not feed_path or not APP_FEED_PATH_RE.fullmatch(feed_path):
+        return
+
+    home.setProperty("AppSpotlight.Refreshing", "true")
+    try:
+        # Container.Update targets the focused container. Temporarily focus the
+        # hidden Spotlight list (301), then return focus to the app row (300).
+        # The skin guards its normal Spotlight focus handlers while this runs.
+        xbmc.executebuiltin("SetFocus(301)", wait=True)
+        xbmc.executebuiltin("Container.Update(%s)" % feed_path, wait=True)
+    except Exception as exc:
+        xbmc.log("Kodi Home: app Spotlight refresh failed: %s" % exc, xbmc.LOGWARNING)
+    finally:
+        try:
+            xbmc.executebuiltin("SetFocus(300)", wait=True)
+        except Exception as exc:
+            xbmc.log("Kodi Home: could not restore app row focus: %s" % exc, xbmc.LOGWARNING)
+        home.clearProperty("AppSpotlight.Refreshing")
+
+
 def _edit_app_background_folder(params):
     package_name = params.get("package", "")
     if not ANDROID_PACKAGE_RE.fullmatch(package_name):
@@ -1226,6 +1251,8 @@ def main():
         _edit_app_feed(params)
     elif action == "app_open_feed":
         _open_app_feed(params)
+    elif action == "refresh_app_spotlight":
+        _refresh_app_spotlight()
     elif action == "app_youtube_feed":
         _use_youtube_public_feed(params)
     elif action == "app_iplayer_feed":

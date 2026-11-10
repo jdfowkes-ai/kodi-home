@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.7"
+CUSTOM_ADDON_VERSION = "0.5.8"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -319,23 +319,16 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
     close_at = block.rfind("        </definition>")
     if close_at < 0:
         raise RuntimeError("Could not locate the Arctic Fuse widget focus definition end")
-    hooks = """            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Blur,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightBackdrop)],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Logo,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightLogo)],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Label,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightLabel)],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Path,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Reload,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(AppSpotlight.Refreshing,True,Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(AppSpotlight.ReturnItem,$ESCINFO[$PARAM[container]ListItemNo],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetFocus(301)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">Container.Update($VAR[Home_Spotlight_Content])</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(AppSpotlight.Loaded,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">ClearProperty(AppSpotlight.Refreshing,Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetProperty(TMDbHelper.WidgetContainer,$PARAM[id],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),$PARAM[container]ListItem.Property(KodiHome.SpotlightReload))">SetFocus($PARAM[id],$INFO[Window(Home).Property(AppSpotlight.ReturnItem)])</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(TMDbHelper.WidgetContainer,301,Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(AppSpotlight.Path,Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(AppSpotlight.Reload,Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(TMDbHelper.WidgetContainer,$PARAM[id],Home)</onfocus>
+    # App tiles keep their normal focus artwork, but never run a feed add-on from
+    # the Home widget's onfocus handler. Feed selection and browsing remain in
+    # the Kodi Home app context menu.
+    hooks = """            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">ClearProperty(AppSpotlight.Path,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">ClearProperty(AppSpotlight.Blur,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">ClearProperty(AppSpotlight.Logo,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">ClearProperty(AppSpotlight.Label,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">ClearProperty(AppSpotlight.Reload,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">ClearProperty(AppSpotlight.Loaded,Home)</onfocus>
+            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(TMDbHelper.WidgetContainer,$PARAM[id],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Path,Home)</onfocus>
             <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Blur,Home)</onfocus>
             <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">ClearProperty(AppSpotlight.Logo,Home)</onfocus>

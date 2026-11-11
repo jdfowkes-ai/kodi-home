@@ -891,7 +891,7 @@ def _refresh_app_spotlight():
     reload_key = home.getProperty("AppSpotlight.Reload").strip()
     if not feed_path or not APP_FEED_PATH_RE.fullmatch(feed_path) or not reload_key:
         return
-    if not re.fullmatch(r"\\d{1,6}", app_control) or app_control == "301":
+    if not re.fullmatch(r"\d{1,6}", app_control) or app_control == "301":
         xbmc.log("Kodi Home: app Spotlight refresh has no valid Apps row control", xbmc.LOGWARNING)
         return
     if home.getProperty("AppSpotlight.Loaded") == reload_key:

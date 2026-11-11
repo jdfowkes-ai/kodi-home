@@ -483,7 +483,7 @@ def _app_group(group_id):
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
         feed_path = (app.get("feed_path") or _default_app_feed(app)).strip()
-        reload_key = "%s:%s" % (package_name, int(time.time()))
+        reload_key = "%s:%s" % (package_name, feed_path or "no-feed")
         spotlight_label = label
         if package_name == "com.google.android.youtube.tv":
             spotlight_label = "YouTube Trending"

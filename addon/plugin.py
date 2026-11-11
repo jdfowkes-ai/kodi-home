@@ -884,14 +884,17 @@ def _open_app_feed(params):
 
 
 def _refresh_app_spotlight():
-    """Refresh the selected app feed and restore focus to its actual Apps row."""
+    """Refresh the selected app feed once, without re-triggering on focus restore."""
     home = xbmcgui.Window(10000)
     feed_path = home.getProperty("AppSpotlight.Path").strip()
     app_control = home.getProperty("AppSpotlight.AppControl").strip()
-    if not feed_path or not APP_FEED_PATH_RE.fullmatch(feed_path):
+    reload_key = home.getProperty("AppSpotlight.Reload").strip()
+    if not feed_path or not APP_FEED_PATH_RE.fullmatch(feed_path) or not reload_key:
         return
-    if not re.fullmatch(r"\d{1,6}", app_control) or app_control == "301":
+    if not re.fullmatch(r"\\d{1,6}", app_control) or app_control == "301":
         xbmc.log("Kodi Home: app Spotlight refresh has no valid Apps row control", xbmc.LOGWARNING)
+        return
+    if home.getProperty("AppSpotlight.Loaded") == reload_key:
         return
 
     home.setProperty("AppSpotlight.Refreshing", "true")
@@ -902,14 +905,16 @@ def _refresh_app_spotlight():
         if not xbmc.getCondVisibility("Control.HasFocus(301)"):
             raise RuntimeError("Kodi did not focus the hidden Spotlight list")
         xbmc.executebuiltin("Container.Update(%s)" % feed_path, wait=True)
+        # Set this before restoring focus. The tile's onfocus handler can run
+        # after SetFocus returns, so this token prevents a second refresh cycle.
+        home.setProperty("AppSpotlight.Loaded", reload_key)
     except Exception as exc:
         xbmc.log("Kodi Home: app Spotlight refresh failed: %s" % exc, xbmc.LOGWARNING)
     finally:
-        # Do not steal focus back if the user moved to another app or menu
-        # while the add-on feed was loading.
         still_selected = (
             home.getProperty("AppSpotlight.Path") == feed_path
             and home.getProperty("AppSpotlight.AppControl") == app_control
+            and home.getProperty("AppSpotlight.Reload") == reload_key
         )
         if still_selected:
             try:
@@ -917,7 +922,6 @@ def _refresh_app_spotlight():
             except Exception as exc:
                 xbmc.log("Kodi Home: could not restore Apps row focus: %s" % exc, xbmc.LOGWARNING)
         home.clearProperty("AppSpotlight.Refreshing")
-
 
 
 def _edit_app_background_folder(params):

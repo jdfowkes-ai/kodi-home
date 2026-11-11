@@ -36,7 +36,7 @@ jobs:
 
           addon_id = "skin.arctic.fuse.3.kodihome"
           source = Path("upstream/skin.arctic.fuse.3")
-          output = Path("dist") / f"{addon_id}-0.5.8.zip"
+          output = Path("dist") / f"{addon_id}-0.5.13.zip"
           output.parent.mkdir(parents=True, exist_ok=True)
 
           with ZipFile(output, "w", ZIP_DEFLATED) as archive:

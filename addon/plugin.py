@@ -52,6 +52,19 @@ APP_BACKGROUND_STUDIO_MATCHERS = {
     "youtube": ("youtube originals", "youtube"),
     "youtube kids": ("youtube originals", "youtube"),
 }
+
+
+def _app_match_terms(app):
+    """Resolve studio/network match terms for a stored app title."""
+    app_name = str(app.get("title") or "").strip().casefold()
+    return APP_BACKGROUND_STUDIO_MATCHERS.get(app_name, ())
+
+
+def _app_library_feed_path(app):
+    """Return a distinct Kodi-library feed for apps with known studio metadata."""
+    if not _app_match_terms(app):
+        return ""
+    return _url(action="app_library_feed", package=app.get("package_name", ""))
 ADDON = xbmcaddon.Addon(ADDON_ID)
 STORE = LocalStore(ADDON)
 
@@ -485,10 +498,14 @@ def _app_group(group_id):
         background_folder = app.get("fanart_folder_path") or _matching_app_fanart_folder(app, library_candidates)
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
-        feed_path = (app.get("feed_path") or _default_app_feed(app)).strip()
+        # The Apps hero uses each provider's Kodi-library studio/network matches.
+        # Keep the saved add-on path for the separate context-menu browse action.
+        feed_path = _app_library_feed_path(app) or (app.get("feed_path") or _default_app_feed(app)).strip()
         reload_key = "%s:%s" % (package_name, feed_path or "no-feed")
         spotlight_label = label
-        if package_name == "com.google.android.youtube.tv":
+        if feed_path.startswith(PLUGIN_URL) and "action=app_library_feed" in feed_path:
+            spotlight_label = "%s Library" % label
+        elif package_name == "com.google.android.youtube.tv":
             spotlight_label = "YouTube Trending"
         elif feed_path:
             spotlight_label = "%s Feed" % label
@@ -1123,6 +1140,85 @@ def _add_library():
     _finish()
 
 
+def _app_library_feed(package_name):
+    """List library titles whose Kodi studio metadata matches this app."""
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _finish()
+        return
+    app = next((row for row in STORE.list_apps() if row["package_name"] == package_name), None)
+    if not app:
+        _finish()
+        return
+    terms = _app_match_terms(app)
+    if not terms:
+        _finish()
+        return
+
+    for media_type, method, result_key, id_key, properties in (
+        ("movie", "VideoLibrary.GetMovies", "movies", "movieid", ["title", "year", "premiered", "plot", "genre", "studio", "mpaa", "rating", "runtime", "art", "file", "uniqueid"]),
+        ("tvshow", "VideoLibrary.GetTVShows", "tvshows", "tvshowid", ["title", "year", "premiered", "plot", "genre", "studio", "mpaa", "rating", "art", "uniqueid"]),
+    ):
+        result = _rpc(
+            method,
+            {
+                "properties": properties,
+                "limits": {"start": 0, "end": 1000},
+                "sort": {"method": "title", "order": "ascending"},
+            },
+        )
+        for entry in result.get(result_key, []):
+            studios = entry.get("studio") or []
+            if not isinstance(studios, (list, tuple)):
+                studios = [studios]
+            studio_text = " ".join(str(studio) for studio in studios).casefold()
+            if not any(term in studio_text for term in terms):
+                continue
+            db_id = entry.get(id_key)
+            if not db_id:
+                continue
+            title = entry.get("title", "")
+            info = {
+                "title": title,
+                "mediatype": media_type,
+                "year": entry.get("year", 0),
+                "premiered": entry.get("premiered", ""),
+                "plot": entry.get("plot", ""),
+                "genre": entry.get("genre", []),
+                "studio": studios,
+                "mpaa": entry.get("mpaa", ""),
+                "rating": entry.get("rating", 0),
+            }
+            if media_type == "movie":
+                info["duration"] = entry.get("runtime", 0)
+            context = [("Add to Watchlist", _url(action="add_watchlist", media_type=media_type, db_id=db_id))]
+            if media_type == "movie":
+                target = _url(action="play_library", media_type="movie", db_id=db_id, start=0)
+                _video_item(title, target, info, art=entry.get("art"), context=context)
+            else:
+                target = _url(action="app_library_show", db_id=db_id)
+                _video_item(title, target, info, art=entry.get("art"), context=context, folder=True)
+    _finish()
+
+
+def _app_library_show(show_id):
+    show = _show_details(show_id)
+    if not show:
+        _finish()
+        return
+    for episode in _library_episodes(show_id):
+        info = {
+            "title": episode.get("title", ""),
+            "tvshowtitle": episode.get("showtitle", show.get("title", "")),
+            "mediatype": "episode",
+            "season": episode.get("season", 0),
+            "episode": episode.get("episode", 0),
+            "plot": episode.get("plot", ""),
+        }
+        target = _url(action="play_library", media_type="episode", db_id=episode["episodeid"], start=0)
+        _video_item(episode.get("title", ""), target, info, art=episode.get("art"))
+    _finish()
+
+
 def _library_items(media_type):
     if media_type == "movie":
         result = _rpc(
@@ -1272,6 +1368,10 @@ def main():
         _edit_app_feed(params)
     elif action == "app_open_feed":
         _open_app_feed(params)
+    elif action == "app_library_feed":
+        _app_library_feed(params.get("package", ""))
+    elif action == "app_library_show":
+        _app_library_show(int(params.get("db_id", 0)))
     elif action == "refresh_app_spotlight":
         _refresh_app_spotlight()
     elif action == "app_youtube_feed":

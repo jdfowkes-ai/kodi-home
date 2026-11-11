@@ -881,7 +881,7 @@ def _open_app_feed(params):
     if not APP_FEED_PATH_RE.fullmatch(feed_path):
         _notify("The saved live feed path is invalid")
         return
-    xbmc.executebuiltin("Container.Update(%s)" % feed_path)
+    xbmc.executebuiltin("ActivateWindow(Videos,%s,return)" % feed_path, wait=True)
 
 
 

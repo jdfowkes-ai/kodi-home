@@ -30,6 +30,9 @@ APP_FEED_PATH_RE = re.compile(r"^plugin://[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./%?=&+%
 HANDLE = int(sys.argv[1])
 
 
+APP_LIBRARY_FANART_CACHE_SECONDS = 6 * 60 * 60
+
+
 APP_BACKGROUND_STUDIO_MATCHERS = {
     "netflix": ("netflix",),
     "disney+": ("disney+", "disney plus", "walt disney", "disney studios", "pixar", "marvel", "lucasfilm", "national geographic"),

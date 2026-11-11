@@ -53,11 +53,33 @@ APP_BACKGROUND_STUDIO_MATCHERS = {
     "youtube kids": ("youtube originals", "youtube"),
 }
 
+APP_PACKAGE_MATCHER_NAMES = {
+    "com.apple.atve.androidtv.appletv": "apple tv",
+    "com.disney.disneyplus": "disney+",
+    "com.netflix.ninja": "netflix",
+    "com.amazon.amazonvideo.livingroom": "prime video",
+    "com.google.android.youtube.tv": "youtube",
+    "com.google.android.youtube.tvkids": "youtube kids",
+    "com.bbc.iplayer": "bbc iplayer",
+    "air.itvmobileplayer": "itvx",
+    "com.itv.itvx": "itvx",
+    "com.channel4.android": "channel 4",
+    "com.paramountplus": "paramount+",
+}
+
 
 def _app_match_terms(app):
-    """Resolve studio/network match terms for a stored app title."""
+    """Resolve studio/network terms by display name, then Android package."""
     app_name = str(app.get("title") or "").strip().casefold()
-    return APP_BACKGROUND_STUDIO_MATCHERS.get(app_name, ())
+    terms = APP_BACKGROUND_STUDIO_MATCHERS.get(app_name, ())
+    if terms:
+        return terms
+    package_name = str(app.get("package_name") or "").strip().casefold()
+    package_matcher = APP_PACKAGE_MATCHER_NAMES.get(package_name, "")
+    if not package_matcher:
+        # Older saved app rows can retain the package name as their title.
+        package_matcher = APP_PACKAGE_MATCHER_NAMES.get(app_name, "")
+    return APP_BACKGROUND_STUDIO_MATCHERS.get(package_matcher, ())
 
 
 def _app_library_feed_path(app):
@@ -353,8 +375,7 @@ def _library_service_candidates():
 
 def _matching_app_fanart_matches(app, candidates):
     """Return unique fanart URLs whose studio metadata matches this app brand."""
-    app_name = str(app.get("title") or "").strip().casefold()
-    terms = APP_BACKGROUND_STUDIO_MATCHERS.get(app_name, ())
+    terms = _app_match_terms(app)
     if not terms:
         return []
 

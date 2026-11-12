@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.15"
+CUSTOM_ADDON_VERSION = "0.5.16"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -327,9 +327,6 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Logo,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightLogo)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.Label,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightLabel)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true)">SetProperty(AppSpotlight.AppControl,$PARAM[id],Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(TMDbHelper.WidgetContainer,301,Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(Background.ShowOverlay,Home)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(InfoPanel.FullSwitch,Spotlight,Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Path,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Reload,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">CancelAlarm(AppSpotlightRefresh,true)</onfocus>
@@ -378,7 +375,7 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
     if hubs.count(marker) != 1 or 'name="Home_Spotlight_Content"' in hubs:
         raise RuntimeError("Could not safely extend the Arctic Fuse Home spotlight variables")
     variables = """    <variable name="AppSpotlight_Background">
-        <value condition="!String.IsEmpty(Window(Home).Property(AppSpotlight.Path)) + !String.IsEmpty(Container(301).ListItem.Art(fanart))">$INFO[Container(301).ListItem.Art(fanart)]</value>
+        <value condition="!String.IsEmpty(Window(Home).Property(AppSpotlight.Path)) + !String.IsEmpty(Container(308).ListItem.Art(fanart))">$INFO[Container(308).ListItem.Art(fanart)]</value>
         <value>$INFO[Window(Home).Property(AppSpotlight.Blur)]</value>
     </variable>
     <variable name="Home_Spotlight_Content">
@@ -389,6 +386,23 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
         <value condition="!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))">videos</value>
         <value>$INFO[Skin.String(HomeSwitcher.Home.Spotlight.Target)]</value>
     </variable>
+    <include name="KodiHome_App_Spotlight_Info">
+        <control type="group">
+            <top>280</top>
+            <visible>!$EXP[Exp_InfoDialogs]</visible>
+            <visible>!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>
+            <visible>String.IsEmpty(Window(Home).Property(AppSpotlight.Refreshing))</visible>
+            <visible>!String.IsEmpty(Container(308).ListItem.Title)</visible>
+            <include>Info_Panel_Dimensions</include>
+            <include content="Info_Panel">
+                <param name="container">Container(308).</param>
+                <param name="visible">true</param>
+                <param name="visible_line">true</param>
+                <param name="visible_plot">true</param>
+                <param name="visible_meta">true</param>
+            </include>
+        </control>
+    </include>
 
 """
     hubs = hubs.replace(marker, variables + marker, 1)
@@ -427,7 +441,18 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
     close_at = hubs.find('                <control type="group">', hs)
     if hs < 0 or close_at < 0:
         raise RuntimeError("Could not locate the Arctic Fuse Home spotlight body")
-    hero = """                <!-- Kodi Home selected title artwork and full info panel. -->
+    hero = """                <control type="wraplist" id="308">
+                    <visible>!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>
+                    <orientation>horizontal</orientation>
+                    <width>1</width>
+                    <height>1</height>
+                    <left>-1920</left>
+                    <top>-1080</top>
+                    <itemlayout />
+                    <focusedlayout />
+                </control>
+                <!-- Kodi Home selected title artwork and full info panel. -->
+
                 <control type="image" id="317">
                     <left>0</left>
                     <top>0</top>
@@ -443,6 +468,7 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
                     <animation effect="fade" start="0" end="100" time="300" reversible="true">Visible</animation>
                     <animation effect="fade" start="100" end="0" time="200" reversible="true">Hidden</animation>
                 </control>
+                <include>KodiHome_App_Spotlight_Info</include>
 """
     hubs = hubs[:close_at] + hero + hubs[close_at:]
     ET.fromstring(hubs)

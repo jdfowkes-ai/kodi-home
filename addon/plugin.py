@@ -113,148 +113,84 @@ STORE = LocalStore(ADDON)
 
 
 
-def _umbrella_filter_config_path():
-    profile = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
-    xbmcvfs.mkdirs(profile)
-    return os.path.join(profile, "umbrella-network-widget.json")
-
-
-def _umbrella_filter_config():
-    path = _umbrella_filter_config_path()
-    if not xbmcvfs.exists(path):
-        return {}
+def _kodi_favourites():
+    """List every favourite saved by Kodi, preserving its thumbnail and type."""
     try:
-        handle = xbmcvfs.File(path, "r")
-        try:
-            value = json.loads(handle.read())
-        finally:
-            handle.close()
-        return value if isinstance(value, dict) else {}
+        rows = _rpc(
+            "Favourites.GetFavourites",
+            {
+                "properties": ["path", "thumbnail", "type", "window", "windowparameter"],
+            },
+        ).get("favourites", [])
     except Exception as exc:
-        xbmc.log("Kodi Home: could not read Umbrella widget filter: %s" % exc, xbmc.LOGWARNING)
-        return {}
-
-
-def _save_umbrella_filter_config(value):
-    path = _umbrella_filter_config_path()
-    handle = xbmcvfs.File(path, "w")
-    try:
-        handle.write(json.dumps(value, ensure_ascii=False))
-    finally:
-        handle.close()
-
-
-def _umbrella_directory(path):
-    result = _rpc(
-        "Files.GetDirectory",
-        {
-            "directory": path,
-            "media": "files",
-            "properties": ["title", "file", "filetype", "thumbnail", "art", "plot", "year"],
-        },
-    )
-    return result.get("files", [])
-
-
-def _configure_umbrella_folder_widget():
-    browse_root = "library://video/"
-    selected = xbmcgui.Dialog().browse(
-        0,
-        "Choose the Umbrella network folder",
-        "video",
-        "",
-        False,
-        False,
-        browse_root,
-    )
-    if not selected or str(selected).strip() == browse_root:
-        _root()
-        return
-    selected = str(selected).strip()
-    if not APP_FEED_PATH_RE.fullmatch(selected) or "plugin.video.umbrella" not in selected.casefold():
-        _notify("Choose a folder inside the Umbrella add-on")
-        _root()
-        return
-
-    try:
-        folders = [
-            row for row in _umbrella_directory(selected)
-            if row.get("file") and (
-                row.get("filetype") == "directory" or str(row.get("file", "")).endswith("/")
-            )
-        ]
-    except Exception as exc:
-        xbmc.log("Kodi Home: could not read Umbrella network folders: %s" % exc, xbmc.LOGERROR)
-        _notify("Couldn't read that Umbrella folder")
-        _root()
-        return
-
-    if not folders:
-        _notify("No folders found there; choose the Umbrella network list")
-        _root()
-        return
-
-    old = _umbrella_filter_config()
-    previous = set(old.get("folders", [])) if old.get("path") == selected else {
-        row["file"] for row in folders
-    }
-    labels = [row.get("label") or row.get("title") or row["file"] for row in folders]
-    preselected = [i for i, row in enumerate(folders) if row["file"] in previous]
-    chosen = xbmcgui.Dialog().multiselect(
-        "Umbrella folders to show",
-        labels,
-        preselect=preselected,
-        useDetails=False,
-    )
-    if chosen is None:
-        _root()
-        return
-    if not chosen:
-        _notify("Select at least one folder")
-        _root()
-        return
-
-    _save_umbrella_filter_config({
-        "path": selected,
-        "folders": [folders[i]["file"] for i in chosen],
-    })
-    _notify("Umbrella widget folders saved")
-    xbmc.executebuiltin("Container.Refresh")
-    _root()
-
-
-def _umbrella_folder_widget():
-    config = _umbrella_filter_config()
-    root = config.get("path")
-    selected = set(config.get("folders", []))
-    if not root or not selected:
-        _notify("Set up the Umbrella folder widget first")
-        _finish()
-        return
-    try:
-        rows = _umbrella_directory(root)
-    except Exception as exc:
-        xbmc.log("Kodi Home: Umbrella widget refresh failed: %s" % exc, xbmc.LOGERROR)
-        _notify("Couldn't load the Umbrella folders")
+        xbmc.log("Kodi Home: could not read Kodi favourites: %s" % exc, xbmc.LOGERROR)
+        _notify("Couldn't load Kodi Favourites")
         _finish()
         return
 
-    for row in rows:
-        target = row.get("file", "")
-        if target not in selected:
-            continue
-        title = row.get("label") or row.get("title") or os.path.basename(target.rstrip("/"))
-        art = dict(row.get("art") or {})
-        if row.get("thumbnail"):
-            art.setdefault("thumb", row["thumbnail"])
-            art.setdefault("icon", row["thumbnail"])
-        info = {
-            "title": title,
-            "mediatype": "video",
-            "plot": row.get("plot", ""),
-            "year": row.get("year") or 0,
-        }
-        _video_item(title, target, info, art=art, folder=True)
+    for index, row in enumerate(rows):
+        title = str(row.get("title") or "Kodi Favourite")
+        thumbnail = row.get("thumbnail", "")
+        item = xbmcgui.ListItem(label=title)
+        item.setInfo("video", {"title": title, "mediatype": "video"})
+        if thumbnail:
+            item.setArt({"thumb": thumbnail, "icon": thumbnail, "poster": thumbnail})
+        item.setProperty("KodiHome.KodiFavouriteType", str(row.get("type", "")))
+        item.addContextMenuItems(_context([
+            ("Open Kodi Favourites", "ActivateWindow(Favourites)"),
+        ]))
+        xbmcplugin.addDirectoryItem(
+            HANDLE,
+            _url(action="run_kodi_favourite", index=index),
+            item,
+            isFolder=False,
+        )
+    _finish()
+
+
+def _run_kodi_favourite(params):
+    try:
+        rows = _rpc(
+            "Favourites.GetFavourites",
+            {
+                "properties": ["path", "type", "window", "windowparameter"],
+            },
+        ).get("favourites", [])
+        index = int(params.get("index", -1))
+        if index < 0 or index >= len(rows):
+            _notify("Kodi Favourite not found")
+            _finish()
+            return
+        favourite = rows[index]
+        kind = favourite.get("type")
+        path = str(favourite.get("path") or "")
+        if kind == "window":
+            window = str(favourite.get("window") or "")
+            parameter = str(favourite.get("windowparameter") or "")
+            if not window:
+                _notify("This favourite has no Kodi window")
+                _finish()
+                return
+            command = "ActivateWindow(%s,%s)" % (window, parameter)
+        elif kind == "media" and path:
+            command = 'PlayMedia("%s")' % path.replace('"', "")
+        elif kind == "script" and path:
+            command = 'RunScript("%s")' % path.replace('"', "")
+        elif kind == "androidapp" and path:
+            command = 'StartAndroidActivity("%s")' % path.replace('"', "")
+        else:
+            _notify("This Kodi Favourite type isn't supported yet")
+            _finish()
+            return
+        xbmc.executebuiltin(command, wait=True)
+    except Exception as exc:
+        xbmc.log("Kodi Home: could not open Kodi favourite: %s" % exc, xbmc.LOGERROR)
+        _notify("Couldn't open that Kodi Favourite")
+    _finish()
+
+
+def _umbrella_folder_widget_disabled():
+    _notify("Umbrella folder filtering is paused after a Kodi crash")
     _finish()
 
 
@@ -1243,8 +1179,7 @@ def _edit_app_background_folder(params):
 
 def _root():
     _folder("Apps", _url(action="apps"))
-    _folder("Configure Umbrella network folders", _url(action="umbrella_widget_configure"))
-    _folder("Umbrella network widget", _url(action="umbrella_folder_widget"))
+    _folder("Kodi Favourites", _url(action="kodi_favourites"))
     _folder("Continue Watching", _url(action="list", name="continue"))
     _folder("Up Next", _url(action="list", name="up_next"))
     _folder("History", _url(action="list", name="history"))
@@ -1658,10 +1593,12 @@ def main():
         _root()
     elif action == "apps":
         _app_groups()
-    elif action == "umbrella_widget_configure":
-        _configure_umbrella_folder_widget()
-    elif action == "umbrella_folder_widget":
-        _umbrella_folder_widget()
+    elif action == "kodi_favourites":
+        _kodi_favourites()
+    elif action == "run_kodi_favourite":
+        _run_kodi_favourite(params)
+    elif action in ("umbrella_widget_configure", "umbrella_folder_widget"):
+        _umbrella_folder_widget_disabled()
     elif action == "app_group":
         _app_group_route(params)
     elif action == "app_spotlight_seed":

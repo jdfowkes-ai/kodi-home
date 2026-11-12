@@ -168,13 +168,12 @@ def _configure_umbrella_folder_widget():
         browse_root,
     )
     if not selected or str(selected).strip() == browse_root:
-        _app_groups()
-        _app_groups()
+        _root()
         return
     selected = str(selected).strip()
     if not APP_FEED_PATH_RE.fullmatch(selected) or "plugin.video.umbrella" not in selected.casefold():
         _notify("Choose a folder inside the Umbrella add-on")
-        _app_groups()
+        _root()
         return
 
     try:
@@ -187,12 +186,12 @@ def _configure_umbrella_folder_widget():
     except Exception as exc:
         xbmc.log("Kodi Home: could not read Umbrella network folders: %s" % exc, xbmc.LOGERROR)
         _notify("Couldn't read that Umbrella folder")
-        _app_groups()
+        _root()
         return
 
     if not folders:
         _notify("No folders found there; choose the Umbrella network list")
-        _app_groups()
+        _root()
         return
 
     old = _umbrella_filter_config()
@@ -208,11 +207,11 @@ def _configure_umbrella_folder_widget():
         useDetails=False,
     )
     if chosen is None:
-        _app_groups()
+        _root()
         return
     if not chosen:
         _notify("Select at least one folder")
-        _app_groups()
+        _root()
         return
 
     _save_umbrella_filter_config({
@@ -221,7 +220,7 @@ def _configure_umbrella_folder_widget():
     })
     _notify("Umbrella widget folders saved")
     xbmc.executebuiltin("Container.Refresh")
-    _app_groups()
+    _root()
 
 
 def _umbrella_folder_widget():

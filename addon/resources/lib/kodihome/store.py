@@ -127,6 +127,12 @@ class LocalStore:
 
                 CREATE INDEX IF NOT EXISTS idx_app_group_members_order
                     ON app_group_members(group_id, sort_order);
+
+                CREATE TABLE IF NOT EXISTS app_group_display_filters (
+                    group_id INTEGER PRIMARY KEY,
+                    visible_packages_json TEXT NOT NULL DEFAULT '[]',
+                    FOREIGN KEY (group_id) REFERENCES app_groups(group_id) ON DELETE CASCADE
+                );
                 """
             )
             connection.execute(
@@ -578,6 +584,39 @@ class LocalStore:
                 (str(name or "").strip(),),
             ).fetchone()
         return dict(row) if row else None
+
+    def get_app_group_display_filter(self, group_id):
+        """Return visible package names, or None when the group shows all apps."""
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT visible_packages_json FROM app_group_display_filters WHERE group_id = ?",
+                (int(group_id),),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            values = json.loads(row["visible_packages_json"] or "[]")
+        except (TypeError, ValueError):
+            return None
+        return [str(value) for value in values if str(value)]
+
+    def set_app_group_display_filter(self, group_id, package_names):
+        """Save the packages shown by a group widget."""
+        values = list(dict.fromkeys(str(value).strip() for value in package_names if str(value).strip()))
+        with self._connection() as connection:
+            connection.execute(
+                "INSERT INTO app_group_display_filters (group_id, visible_packages_json) VALUES (?, ?) "
+                "ON CONFLICT(group_id) DO UPDATE SET visible_packages_json = excluded.visible_packages_json",
+                (int(group_id), json.dumps(values, ensure_ascii=False)),
+            )
+
+    def clear_app_group_display_filter(self, group_id):
+        """Remove the group filter so all member apps are shown again."""
+        with self._connection() as connection:
+            connection.execute(
+                "DELETE FROM app_group_display_filters WHERE group_id = ?",
+                (int(group_id),),
+            )
 
     def add_app_group(self, name):
         """Create a user-named app group and return its ID."""

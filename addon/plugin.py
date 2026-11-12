@@ -962,6 +962,12 @@ def _open_app_feed(params):
 
 
 
+def _app_spotlight_seed():
+    """Provide one hidden item so the app-feed container can accept focus."""
+    _folder("Loading app spotlight", _url(action="root"))
+    _finish()
+
+
 def _refresh_app_spotlight():
     """Refresh the selected app feed once, without re-triggering on focus restore."""
     home = xbmcgui.Window(10000)
@@ -1443,6 +1449,8 @@ def main():
         _app_groups()
     elif action == "app_group":
         _app_group_route(params)
+    elif action == "app_spotlight_seed":
+        _app_spotlight_seed()
     elif action == "app_create_group":
         _create_app_group()
     elif action == "app_rename_group":

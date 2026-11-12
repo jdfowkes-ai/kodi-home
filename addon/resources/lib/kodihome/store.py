@@ -57,6 +57,7 @@ class LocalStore:
                     position_seconds REAL NOT NULL DEFAULT 0,
                     duration_seconds REAL NOT NULL DEFAULT 0,
                     art_json TEXT NOT NULL DEFAULT '{}',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
                     state TEXT NOT NULL DEFAULT 'in_progress'
                         CHECK(state IN ('in_progress', 'completed')),
                     updated_at INTEGER NOT NULL
@@ -183,13 +184,21 @@ class LocalStore:
                     connection.execute(
                         "ALTER TABLE %s ADD COLUMN art_json TEXT NOT NULL DEFAULT '{}'" % table
                     )
+            progress_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(playback_progress)")
+            }
+            if "metadata_json" not in progress_columns:
+                connection.execute(
+                    "ALTER TABLE playback_progress ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'"
+                )
             if schema_version < 6 and connection.execute("SELECT COUNT(*) FROM app_groups").fetchone()[0] == 0:
                 for sort_order, name in enumerate(("Favourites", "Kids", "Home Apps", "Gaming", "Music")):
                     connection.execute(
                         "INSERT OR IGNORE INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",
                         (name, sort_order, int(time.time())),
                     )
-            connection.execute("PRAGMA user_version = 9")
+            connection.execute("PRAGMA user_version = 10")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -200,8 +209,8 @@ class LocalStore:
                 INSERT INTO playback_progress (
                     item_key, media_type, kodi_db_id, title, show_title, year,
                     season, episode, file_path, position_seconds,
-                    duration_seconds, art_json, state, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', ?)
+                    duration_seconds, art_json, metadata_json, state, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', ?)
                 ON CONFLICT(item_key) DO UPDATE SET
                     media_type=excluded.media_type,
                     kodi_db_id=excluded.kodi_db_id,
@@ -214,6 +223,7 @@ class LocalStore:
                     position_seconds=excluded.position_seconds,
                     duration_seconds=excluded.duration_seconds,
                     art_json=CASE WHEN excluded.art_json = '{}' THEN playback_progress.art_json ELSE excluded.art_json END,
+                    metadata_json=CASE WHEN excluded.metadata_json = '{}' THEN playback_progress.metadata_json ELSE excluded.metadata_json END,
                     state='in_progress',
                     updated_at=excluded.updated_at
                 """,
@@ -230,8 +240,8 @@ class LocalStore:
                 INSERT INTO playback_progress (
                     item_key, media_type, kodi_db_id, title, show_title, year,
                     season, episode, file_path, position_seconds,
-                    duration_seconds, art_json, state, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)
+                    duration_seconds, art_json, metadata_json, state, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?)
                 ON CONFLICT(item_key) DO UPDATE SET
                     media_type=excluded.media_type,
                     kodi_db_id=excluded.kodi_db_id,
@@ -244,6 +254,7 @@ class LocalStore:
                     position_seconds=excluded.position_seconds,
                     duration_seconds=excluded.duration_seconds,
                     art_json=excluded.art_json,
+                    metadata_json=excluded.metadata_json,
                     state='completed',
                     updated_at=excluded.updated_at
                 """,
@@ -796,6 +807,10 @@ class LocalStore:
                 item["art"] = json.loads(item.pop("art_json", "{}") or "{}")
             except (TypeError, ValueError):
                 item["art"] = {}
+            try:
+                item["metadata"] = json.loads(item.pop("metadata_json", "{}") or "{}")
+            except (TypeError, ValueError):
+                item["metadata"] = {}
             result.append(item)
         return result
 
@@ -814,5 +829,6 @@ class LocalStore:
             item["position_seconds"],
             item["duration_seconds"],
             json.dumps(item.get("art") or {}, sort_keys=True),
+            json.dumps(item.get("metadata") or {}, sort_keys=True),
             updated_at,
         )

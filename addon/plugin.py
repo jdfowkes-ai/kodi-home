@@ -87,6 +87,14 @@ def _app_library_feed_path(app):
     if not _app_match_terms(app):
         return ""
     return _url(action="app_library_feed", package=app.get("package_name", ""))
+
+
+def _app_spotlight_feed_path(app, library_candidates):
+    """Prefer library content when matching studio artwork is available."""
+    library_path = _app_library_feed_path(app)
+    if library_path and _matching_app_fanart_matches(app, library_candidates):
+        return library_path
+    return (app.get("feed_path") or _default_app_feed(app)).strip()
 ADDON = xbmcaddon.Addon(ADDON_ID)
 STORE = LocalStore(ADDON)
 
@@ -519,9 +527,9 @@ def _app_group(group_id):
         background_folder = app.get("fanart_folder_path") or _matching_app_fanart_folder(app, library_candidates)
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
-        # The Apps hero uses each provider's Kodi-library studio/network matches.
-        # Keep the saved add-on path for the separate context-menu browse action.
-        feed_path = _app_library_feed_path(app) or (app.get("feed_path") or _default_app_feed(app)).strip()
+        # Keep the app's existing feed as a fallback so the hero retains its
+        # working backdrop while Kodi's library metadata catches up.
+        feed_path = _app_spotlight_feed_path(app, library_candidates)
         reload_key = "%s:%s" % (package_name, feed_path or "no-feed")
         spotlight_label = label
         if feed_path.startswith(PLUGIN_URL) and "action=app_library_feed" in feed_path:

@@ -193,6 +193,24 @@ class KodiHomePlayer(xbmc.Player):
 
             kodi_db_id = int(tag.getDbId() or 0) or None
             item_key = "%s:%s" % (media_type, kodi_db_id) if kodi_db_id else self._path_key(media_type, file_path)
+            metadata = {}
+            for key, method_name in (
+                ("plot", "getPlot"),
+                ("genre", "getGenres"),
+                ("rating", "getRating"),
+                ("premiered", "getPremiered"),
+                ("mpaa", "getMpaa"),
+                ("studio", "getStudios"),
+                ("director", "getDirectors"),
+                ("tagline", "getTagLine"),
+                ("country", "getCountries"),
+            ):
+                try:
+                    value = getattr(tag, method_name)()
+                    if value not in (None, "", [], 0):
+                        metadata[key] = value
+                except Exception:
+                    pass
             duration = max(0.0, float(self.getTotalTime()))
             current_time = max(0.0, float(self.getTime()))
             position = min(current_time, duration) if duration else current_time
@@ -220,6 +238,7 @@ class KodiHomePlayer(xbmc.Player):
                 "position_seconds": position,
                 "duration_seconds": duration,
                 "art": art,
+                "metadata": metadata,
             }
         except Exception:
             return None

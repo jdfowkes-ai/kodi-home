@@ -943,6 +943,8 @@
                 <param name="control">group</param>
                 <control type="label">
                     <wrapmultiline>true</wrapmultiline>
+                    <scroll>true</scroll>
+                    <scrollspeed>40</scrollspeed>
                     <width>$PARAM[width]</width>
                     <textcolor>$PARAM[colordiffuse]_70</textcolor>
                     <label>$PARAM[label]</label>
@@ -1331,6 +1333,23 @@
                     <param name="visible">$PARAM[visible_plot]</param>
                     <param name="use_textbox">$PARAM[use_textbox]</param>
                 </include>
+
+                <!-- Cast -->
+                <control type="group">
+                    <visible>$PARAM[include_details]</visible>
+                    <visible>!String.IsEmpty($PARAM[container]$PARAM[listitem].Cast)</visible>
+                    <height>40</height>
+                    <control type="label">
+                        <left>40</left>
+                        <height>40</height>
+                        <width>$PARAM[plotwidth]</width>
+                        <font>font_main</font>
+                        <textcolor>$PARAM[colordiffuse]_70</textcolor>
+                        <label>Actors: $INFO[$PARAM[container]$PARAM[listitem].Cast]</label>
+                        <scroll>true</scroll>
+                        <scrollspeed>40</scrollspeed>
+                    </control>
+                </control>
 
                 <!-- Meta -->
                 <include content="Info_Meta" condition="$PARAM[include_details]">

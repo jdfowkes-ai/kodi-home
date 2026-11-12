@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.16"
+CUSTOM_ADDON_VERSION = "0.5.17"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -214,8 +214,8 @@ def apply_app_background_slideshow_overlay(skin_root: Path) -> None:
                 <width>flixart_size_w</width>
                 <aspectratio scalediffuse="false">scale</aspectratio>
                 <imagepath>$INFO[Container.ListItem.Property(KodiHome.BackgroundFolder)]</imagepath>
-                <timeperimage>8000</timeperimage>
-                <fadetime>1200</fadetime>
+                <timeperimage>10000</timeperimage>
+                <fadetime>1500</fadetime>
                 <randomize>true</randomize>
                 <loop>yes</loop>
                 <visible>String.IsEqual(Container.ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty(Container.ListItem.Property(KodiHome.BackgroundFolder))</visible>
@@ -443,6 +443,7 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
         raise RuntimeError("Could not locate the Arctic Fuse Home spotlight body")
     hero = """                <control type="wraplist" id="308">
                     <visible>!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>
+                    <content>$INFO[Window(Home).Property(AppSpotlight.Path)]</content>
                     <orientation>horizontal</orientation>
                     <width>1</width>
                     <height>1</height>

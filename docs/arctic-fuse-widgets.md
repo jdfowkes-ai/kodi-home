@@ -40,6 +40,16 @@ You confirmed the Shield baseline is **Arctic Fuse 3.4.18**. I checked the upstr
 
 The upstream `jurialmunkey/skin.arctic.fuse.3` omega branch still declares version **3.4.18**, matching the Shield baseline. The branch has newer source commits, but no higher add-on version is declared there. The maintainer's Kodi repository identifies itself as an alpha repository. This checks public source only; the Shield's configured repositories and pending updates have not been inspected.
 
+## Umbrella network folder widget
+
+The Kodi Home add-on root includes **Configure Umbrella network folders**. Choose the Umbrella folder that contains the network folders, then select the folders to display. The existing direct Umbrella widget is left unchanged.
+
+After saving, choose this path as the widget content in Arctic Fuse:
+
+`plugin://plugin.video.kodihome/?action=umbrella_folder_widget`
+
+To change the selection, open Kodi Home and run **Configure Umbrella network folders** again.
+
 ## Apps hub paths
 
 - Apps groups: `plugin://plugin.video.kodihome/?action=apps`

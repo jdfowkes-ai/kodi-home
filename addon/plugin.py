@@ -496,17 +496,66 @@ def _app_groups():
     _folder("Create app group", _url(action="app_create_group"))
     _folder("Add installed app", _url(action="app_choose_group"))
     for group in groups:
+        group_id = group["group_id"]
         label = "%s (%d)" % (group["name"], group["app_count"])
         context = [
-            ("Rename group", _url(action="app_rename_group", group_id=group["group_id"])),
-            ("Delete group", _url(action="app_delete_group", group_id=group["group_id"])),
+            ("Rename group", _url(action="app_rename_group", group_id=group_id)),
+            ("Choose networks shown", _url(action="app_filter_group", group_id=group_id)),
         ]
+        if STORE.get_app_group_display_filter(group_id) is not None:
+            context.append(("Show all networks", _url(action="app_clear_group_filter", group_id=group_id)))
+        context.append(("Delete group", _url(action="app_delete_group", group_id=group_id)))
         _app_folder(
             label,
-            _url(action="app_group", group_id=group["group_id"]),
+            _url(action="app_group", group_id=group_id),
             context,
         )
     _finish()
+
+
+
+def _filter_app_group(params):
+    group_id = int(params.get("group_id", 0))
+    group = STORE.get_app_group(group_id)
+    apps = STORE.list_apps(group_id)
+    if not group or not apps:
+        _notify("No networks are available in this group")
+        return
+
+    visible_packages = STORE.get_app_group_display_filter(group_id)
+    selected = set(visible_packages) if visible_packages is not None else {
+        app["package_name"] for app in apps
+    }
+    labels = [app.get("title") or app["package_name"] for app in apps]
+    preselected = [
+        index for index, app in enumerate(apps)
+        if app["package_name"] in selected
+    ]
+    result = xbmcgui.Dialog().multiselect(
+        "Networks shown in %s" % group["name"],
+        labels,
+        preselect=preselected,
+        useDetails=False,
+    )
+    if result is None:
+        return
+    if not result:
+        _notify("Select at least one network")
+        return
+
+    STORE.set_app_group_display_filter(
+        group_id,
+        [apps[index]["package_name"] for index in result],
+    )
+    _notify("Network widget filter saved")
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def _clear_app_group_filter(params):
+    group_id = int(params.get("group_id", 0))
+    STORE.clear_app_group_display_filter(group_id)
+    _notify("All networks restored")
+    xbmc.executebuiltin("Container.Refresh")
 
 
 def _app_group_route(params):
@@ -530,6 +579,17 @@ def _app_group(group_id):
         _folder(
             "Add apps to %s" % group["name"],
             _url(action="app_picker", group_id=group["group_id"]),
+        )
+        _finish()
+        return
+    visible_packages = STORE.get_app_group_display_filter(group["group_id"])
+    if visible_packages is not None:
+        visible_set = set(visible_packages)
+        apps = [app for app in apps if app["package_name"] in visible_set]
+    if not apps:
+        _folder(
+            "Choose networks shown in %s" % group["name"],
+            _url(action="app_filter_group", group_id=group["group_id"]),
         )
         _finish()
         return
@@ -1455,6 +1515,10 @@ def main():
         _app_spotlight_seed()
     elif action == "app_create_group":
         _create_app_group()
+    elif action == "app_filter_group":
+        _filter_app_group(params)
+    elif action == "app_clear_group_filter":
+        _clear_app_group_filter(params)
     elif action == "app_rename_group":
         _rename_app_group(int(params.get("group_id", 0)))
     elif action == "app_delete_group":

@@ -980,8 +980,8 @@ def _refresh_app_spotlight():
     try:
         # Container.Update acts on the focused container. Focus the hidden
         # Spotlight list only after confirming Kodi accepted that focus change.
-        xbmc.executebuiltin("SetFocus(301)", wait=True)
-        if not xbmc.getCondVisibility("Control.HasFocus(301)"):
+        xbmc.executebuiltin("SetFocus(308)", wait=True)
+        if not xbmc.getCondVisibility("Control.HasFocus(308)"):
             raise RuntimeError("Kodi did not focus the hidden Spotlight list")
         xbmc.executebuiltin("Container.Update(%s)" % feed_path, wait=True)
         # Set this before restoring focus. The tile's onfocus handler can run

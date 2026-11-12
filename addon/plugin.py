@@ -124,8 +124,11 @@ def _umbrella_filter_config():
     if not xbmcvfs.exists(path):
         return {}
     try:
-        with xbmcvfs.File(path, "r") as handle:
+        handle = xbmcvfs.File(path, "r")
+        try:
             value = json.loads(handle.read())
+        finally:
+            handle.close()
         return value if isinstance(value, dict) else {}
     except Exception as exc:
         xbmc.log("Kodi Home: could not read Umbrella widget filter: %s" % exc, xbmc.LOGWARNING)
@@ -134,8 +137,11 @@ def _umbrella_filter_config():
 
 def _save_umbrella_filter_config(value):
     path = _umbrella_filter_config_path()
-    with xbmcvfs.File(path, "w") as handle:
+    handle = xbmcvfs.File(path, "w")
+    try:
         handle.write(json.dumps(value, ensure_ascii=False))
+    finally:
+        handle.close()
 
 
 def _umbrella_directory(path):
@@ -162,6 +168,7 @@ def _configure_umbrella_folder_widget():
         browse_root,
     )
     if not selected or str(selected).strip() == browse_root:
+        _app_groups()
         return
     selected = str(selected).strip()
     if not APP_FEED_PATH_RE.fullmatch(selected) or "plugin.video.umbrella" not in selected.casefold():
@@ -208,6 +215,7 @@ def _configure_umbrella_folder_widget():
     })
     _notify("Umbrella widget folders saved")
     xbmc.executebuiltin("Container.Refresh")
+    _app_groups()
 
 
 def _umbrella_folder_widget():

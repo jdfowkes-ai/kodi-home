@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.18"
+CUSTOM_ADDON_VERSION = "0.5.19"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -463,10 +463,10 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
                         <param name="condition">[!Control.HasFocus(308) | System.IdleTime(3)]</param>
                     </include>
                     <orientation>horizontal</orientation>
-                    <width>1</width>
-                    <height>1</height>
-                    <left>-1920</left>
-                    <top>-1080</top>
+                    <width>1920</width>
+                    <height>1080</height>
+                    <left>0</left>
+                    <top>0</top>
                     <itemlayout />
                     <focusedlayout />
                 </control>

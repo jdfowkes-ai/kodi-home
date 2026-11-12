@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.17"
+CUSTOM_ADDON_VERSION = "0.5.18"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -218,7 +218,7 @@ def apply_app_background_slideshow_overlay(skin_root: Path) -> None:
                 <fadetime>1500</fadetime>
                 <randomize>true</randomize>
                 <loop>yes</loop>
-                <visible>String.IsEqual(Container.ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty(Container.ListItem.Property(KodiHome.BackgroundFolder))</visible>
+                <visible>String.IsEqual(Container.ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty(Container.ListItem.Property(KodiHome.BackgroundFolder)) + String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>
                 <include>Background_NotVideo</include>
             </control>
 """
@@ -351,6 +351,21 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
 
     hubs_file = skin_root / "1080i/Includes_Hubs.xml"
     hubs = hubs_file.read_text(encoding="utf-8")
+    for include_name in ("Hub_Combined_Info", "Hub_Spotlight_Info"):
+        include_marker = '    <include name="%s">' % include_name
+        include_start = hubs.find(include_marker)
+        include_end = hubs.find("\\n    </include>", include_start)
+        if include_start < 0 or include_end < 0:
+            raise RuntimeError("Could not locate %s for app info isolation" % include_name)
+        info_block = hubs[include_start:include_end]
+        control_marker = "        <control type=\"group\">"
+        guard = "            <visible>String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>\\n"
+        if guard.strip() in info_block:
+            raise RuntimeError("%s already has the app info guard" % include_name)
+        if info_block.count(control_marker) < 1:
+            raise RuntimeError("Could not locate %s outer group" % include_name)
+        info_block = info_block.replace(control_marker, control_marker + "\\n" + guard.rstrip("\\n"), 1)
+        hubs = hubs[:include_start] + info_block + hubs[include_end:]
     spotlight_start = hubs.find('    <include name="Hub_Spotlight_List">')
     spotlight_end = hubs.find('    <include name="Hub_Window_Side_Slide_Animation">', spotlight_start)
     if spotlight_start < 0 or spotlight_end < 0:
@@ -443,7 +458,10 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
         raise RuntimeError("Could not locate the Arctic Fuse Home spotlight body")
     hero = """                <control type="wraplist" id="308">
                     <visible>!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>
-                    <content>$INFO[Window(Home).Property(AppSpotlight.Path)]</content>
+                    <content>plugin://plugin.video.kodihome/?action=app_spotlight_seed</content>
+                    <include content="Defs_AutoScroll">
+                        <param name="condition">[!Control.HasFocus(308) | System.IdleTime(3)]</param>
+                    </include>
                     <orientation>horizontal</orientation>
                     <width>1</width>
                     <height>1</height>

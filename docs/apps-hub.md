@@ -30,7 +30,7 @@ Bundled logo source artwork uses Simple Icons (CC0) and the provider marks recor
 
 ## Group widgets
 
-Group folders and widgets show only the apps in that group. Use **Add installed app** from the Apps list to add apps to a group. Rename or delete a group from its context menu in the Apps list; rename, change artwork, or remove an app from the app tile context menu.
+Group folders and widgets show only the apps in that group. On a group in the Apps list, open its context menu and choose **Choose networks shown** to pick which member apps appear in its widget; **Show all networks** clears that filter. Use **Add installed app** from the Apps list to add apps to a group. Rename or delete a group from its context menu in the Apps list; rename, change artwork, or remove an app from the app tile context menu.
 
 ## Paths
 

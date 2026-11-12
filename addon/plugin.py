@@ -994,6 +994,8 @@ def _refresh_app_spotlight():
         # after SetFocus returns, so this token prevents a second refresh cycle.
         home.setProperty("AppSpotlight.Loaded", reload_key)
     except Exception as exc:
+        # Do not retry a failed focus/update every second; retry only when the selected app changes.
+        home.setProperty("AppSpotlight.Loaded", reload_key)
         xbmc.log("Kodi Home: app Spotlight refresh failed: %s" % exc, xbmc.LOGWARNING)
     finally:
         still_selected = (

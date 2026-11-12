@@ -1336,22 +1336,6 @@
                     <param name="use_textbox">$PARAM[use_textbox]</param>
                 </include>
 
-                <!-- Cast -->
-                <control type="group">
-                    <visible>$PARAM[include_details]</visible>
-                    <visible>!String.IsEmpty($PARAM[container]$PARAM[listitem].Cast)</visible>
-                    <height>40</height>
-                    <control type="textbox">
-                        <left>40</left>
-                        <height>40</height>
-                        <width>$PARAM[plotwidth]</width>
-                        <font>font_main</font>
-                        <textcolor>$PARAM[colordiffuse]_70</textcolor>
-                        <label>Actors: $INFO[$PARAM[container]$PARAM[listitem].Cast]</label>
-                        <autoscroll delay="3500" time="2200" repeat="11000">true</autoscroll>
-                    </control>
-                </control>
-
                 <!-- Meta -->
                 <include content="Info_Meta" condition="$PARAM[include_details]">
                     <param name="colordiffuse">$PARAM[colordiffuse]</param>

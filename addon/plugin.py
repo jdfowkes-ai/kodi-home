@@ -1220,6 +1220,7 @@ def _continue_watching():
             "playcount": 0,
         }
         art = row.get("art")
+        saved_metadata = row.get("metadata") or {}
         details = None
         if row.get("kodi_db_id"):
             try:
@@ -1232,6 +1233,10 @@ def _continue_watching():
                 if value not in (None, "", []):
                     info[key] = value
             art = details.get("art") or art
+        for key in ("plot", "genre", "rating", "premiered", "runtime", "mpaa", "studio", "director", "tagline", "country"):
+            value = saved_metadata.get(key)
+            if info.get(key) in (None, "", [], 0) and value not in (None, "", []):
+                info[key] = value
         if row["media_type"] == "episode":
             info.update({
                 "tvshowtitle": (details or {}).get("showtitle") or row.get("show_title", ""),
@@ -1248,6 +1253,9 @@ def _continue_watching():
                 for key in ("year", "genre", "rating", "mpaa", "studio"):
                     if info.get(key) in (None, "", [], 0) and show.get(key) not in (None, "", []):
                         info[key] = show[key]
+                for key in ("plot", "genre", "rating", "mpaa", "studio", "premiered"):
+                    if info.get(key) in (None, "", [], 0) and saved_metadata.get(key) not in (None, "", []):
+                        info[key] = saved_metadata[key]
                 if not info.get("plot"):
                     info["plot"] = (details or {}).get("plot") or show.get("plot", "")
                 if not info.get("premiered"):

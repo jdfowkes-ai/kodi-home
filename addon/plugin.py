@@ -90,11 +90,14 @@ def _app_library_feed_path(app):
 
 
 def _app_spotlight_feed_path(app):
-    """Use the app's own library query instead of gating it on cached artwork."""
+    """Prefer an explicitly selected Umbrella/add-on folder feed for this app."""
+    saved_feed = (app.get("feed_path") or "").strip()
+    if saved_feed:
+        return saved_feed
     library_path = _app_library_feed_path(app)
     if library_path:
         return library_path
-    return (app.get("feed_path") or _default_app_feed(app)).strip()
+    return _default_app_feed(app).strip()
 
 
 def _app_selected_studios(app):
@@ -119,7 +122,8 @@ def _kodi_favourites():
         rows = _rpc(
             "Favourites.GetFavourites",
             {
-                "properties": ["path", "thumbnail", "type", "window", "windowparameter"],
+                "type": None,
+                "properties": ["path", "thumbnail", "window", "windowparameter"],
             },
         ).get("favourites", [])
     except Exception as exc:
@@ -153,7 +157,8 @@ def _run_kodi_favourite(params):
         rows = _rpc(
             "Favourites.GetFavourites",
             {
-                "properties": ["path", "type", "window", "windowparameter"],
+                "type": None,
+                "properties": ["path", "window", "windowparameter", "thumbnail"],
             },
         ).get("favourites", [])
         index = int(params.get("index", -1))

@@ -354,17 +354,17 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
     for include_name in ("Hub_Combined_Info", "Hub_Spotlight_Info"):
         include_marker = '    <include name="%s">' % include_name
         include_start = hubs.find(include_marker)
-        include_end = hubs.find("\\n    </include>", include_start)
+        include_end = hubs.find("\n    </include>", include_start)
         if include_start < 0 or include_end < 0:
             raise RuntimeError("Could not locate %s for app info isolation" % include_name)
         info_block = hubs[include_start:include_end]
         control_marker = "        <control type=\"group\">"
-        guard = "            <visible>String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>\\n"
+        guard = "            <visible>String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>\n"
         if guard.strip() in info_block:
             raise RuntimeError("%s already has the app info guard" % include_name)
         if info_block.count(control_marker) < 1:
             raise RuntimeError("Could not locate %s outer group" % include_name)
-        info_block = info_block.replace(control_marker, control_marker + "\\n" + guard.rstrip("\\n"), 1)
+        info_block = info_block.replace(control_marker, control_marker + "\n" + guard.rstrip("\n"), 1)
         hubs = hubs[:include_start] + info_block + hubs[include_end:]
     spotlight_start = hubs.find('    <include name="Hub_Spotlight_List">')
     spotlight_end = hubs.find('    <include name="Hub_Window_Side_Slide_Animation">', spotlight_start)

@@ -269,36 +269,56 @@ def _notify(message):
 
 
 def _movie_details(movie_id):
-    return _rpc(
-        "VideoLibrary.GetMovieDetails",
-        {
-            "movieid": int(movie_id),
-            "properties": ["title", "year", "premiered", "plot", "genre", "art", "file", "uniqueid"],
-        },
-    ).get("moviedetails")
+    base = ["title", "year", "premiered", "plot", "genre", "art", "file", "uniqueid"]
+    enriched = base + ["rating", "mpaa", "runtime", "studio", "director"]
+    try:
+        result = _rpc(
+            "VideoLibrary.GetMovieDetails",
+            {"movieid": int(movie_id), "properties": enriched},
+        )
+    except Exception:
+        result = _rpc(
+            "VideoLibrary.GetMovieDetails",
+            {"movieid": int(movie_id), "properties": base},
+        )
+    return result.get("moviedetails")
 
 
 def _show_details(show_id):
-    return _rpc(
-        "VideoLibrary.GetTVShowDetails",
-        {
-            "tvshowid": int(show_id),
-            "properties": ["title", "year", "premiered", "plot", "genre", "art", "uniqueid"],
-        },
-    ).get("tvshowdetails")
+    base = ["title", "year", "premiered", "plot", "genre", "art", "uniqueid"]
+    enriched = base + ["rating", "mpaa", "studio", "runtime"]
+    try:
+        result = _rpc(
+            "VideoLibrary.GetTVShowDetails",
+            {"tvshowid": int(show_id), "properties": enriched},
+        )
+    except Exception:
+        result = _rpc(
+            "VideoLibrary.GetTVShowDetails",
+            {"tvshowid": int(show_id), "properties": base},
+        )
+    return result.get("tvshowdetails")
 
 
 def _episode_details(episode_id):
-    return _rpc(
-        "VideoLibrary.GetEpisodeDetails",
-        {
-            "episodeid": int(episode_id),
-            "properties": [
-                "title", "showtitle", "year", "season", "episode", "plot",
-                "art", "file", "playcount", "tvshowid",
-            ],
-        },
-    ).get("episodedetails")
+    # Kodi does not expose "year" as an episode detail property. Asking for it
+    # rejects the complete JSON-RPC request on some Kodi versions.
+    base = [
+        "title", "showtitle", "season", "episode", "plot", "art", "file",
+        "playcount", "tvshowid",
+    ]
+    enriched = base + ["rating", "firstaired", "runtime"]
+    try:
+        result = _rpc(
+            "VideoLibrary.GetEpisodeDetails",
+            {"episodeid": int(episode_id), "properties": enriched},
+        )
+    except Exception:
+        result = _rpc(
+            "VideoLibrary.GetEpisodeDetails",
+            {"episodeid": int(episode_id), "properties": base},
+        )
+    return result.get("episodedetails")
 
 
 def _library_episodes(show_id):
@@ -1196,18 +1216,58 @@ def _continue_watching():
             "title": row["title"],
             "mediatype": row["media_type"],
             "year": row.get("year") or 0,
-            "plot": "",
             "duration": int(row.get("duration_seconds") or 0),
             "playcount": 0,
         }
+        art = row.get("art")
+        details = None
+        if row.get("kodi_db_id"):
+            try:
+                details = _details_for_item(row["media_type"], row["kodi_db_id"])
+            except Exception as exc:
+                xbmc.log("Kodi Home: Continue Watching metadata lookup failed: %s" % exc, xbmc.LOGWARNING)
+        if details:
+            for key in ("title", "year", "plot", "genre", "rating", "premiered", "runtime", "mpaa", "studio", "director"):
+                value = details.get(key)
+                if value not in (None, "", []):
+                    info[key] = value
+            art = details.get("art") or art
         if row["media_type"] == "episode":
-            info.update({"tvshowtitle": row.get("show_title", ""), "season": row.get("season") or 0, "episode": row.get("episode") or 0})
+            info.update({
+                "tvshowtitle": (details or {}).get("showtitle") or row.get("show_title", ""),
+                "season": row.get("season") or 0,
+                "episode": row.get("episode") or 0,
+            })
+            show_id = (details or {}).get("tvshowid") or row.get("tvshow_db_id")
+            if show_id:
+                try:
+                    show = _show_details(show_id) or {}
+                except Exception as exc:
+                    xbmc.log("Kodi Home: Continue Watching show metadata lookup failed: %s" % exc, xbmc.LOGWARNING)
+                    show = {}
+                for key in ("year", "genre", "rating", "mpaa", "studio"):
+                    if info.get(key) in (None, "", [], 0) and show.get(key) not in (None, "", []):
+                        info[key] = show[key]
+                if not info.get("plot"):
+                    info["plot"] = (details or {}).get("plot") or show.get("plot", "")
+                if not info.get("premiered"):
+                    info["premiered"] = (details or {}).get("firstaired") or show.get("premiered", "")
+                art = (details or {}).get("art") or show.get("art") or art
         play_url = _url(action="play_progress", key=row["item_key"], start=int(row.get("position_seconds") or 0))
         context = [
             ("Play from beginning", _url(action="play_progress", key=row["item_key"], start=0)),
+            ("Add to Watchlist", _url(
+                action="add_watchlist",
+                media_type="movie" if row["media_type"] == "movie" else "tvshow",
+                db_id=row.get("kodi_db_id") if row["media_type"] == "movie" else row.get("tvshow_db_id"),
+            )) if (
+                (row["media_type"] == "movie" and row.get("kodi_db_id"))
+                or (row["media_type"] == "episode" and (row.get("tvshow_db_id") or (details or {}).get("tvshowid")))
+            ) else None,
             ("Remove from Continue Watching", _url(action="remove_continue", key=row["item_key"])),
         ]
-        _video_item(label, play_url, info, art=row.get("art"), context=context)
+        context = [entry for entry in context if entry]
+        _video_item(label, play_url, info, art=art, context=context)
     _finish()
 
 

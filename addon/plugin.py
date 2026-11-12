@@ -315,11 +315,12 @@ def _umbrella_folder_list(state="visible"):
         label = entry["title"]
         _video_item(
             label,
-            path,
-            {"title": label, "mediatype": "video"},
+            _url(action="umbrella_open_blocked", title=label),
+            {"title": label, "mediatype": "video",
+             "plot": "Opening this Umbrella folder is paused because it crashes Kodi on this device."},
             context=[("Show folder" if is_hidden else "Hide folder",
                       _url(action=action, path=path))],
-            folder=True,
+            folder=False,
         )
     _finish()
 
@@ -331,12 +332,19 @@ def _umbrella_folder_widget():
         label = entry["title"]
         _video_item(
             label,
-            path,
-            {"title": label, "mediatype": "video"},
+            _url(action="umbrella_open_blocked", title=label),
+            {"title": label, "mediatype": "video",
+             "plot": "Opening this Umbrella folder is paused because it crashes Kodi on this device."},
             context=[("Hide folder", _url(action="umbrella_hide_folder", path=path))],
-            folder=True,
+            folder=False,
         )
     _folder("Manage Umbrella network folders", _url(action="umbrella_widget_configure"))
+    _finish()
+
+
+def _umbrella_open_blocked(params):
+    title = str(params.get("title") or "Umbrella folder")
+    _notify("%s is saved, but opening it is paused to prevent another Kodi crash" % title)
     _finish()
 
 
@@ -1849,6 +1857,8 @@ def main():
         _umbrella_browse_add_folder()
     elif action == "umbrella_folder_list":
         _umbrella_folder_list(params.get("state", "visible"))
+    elif action == "umbrella_open_blocked":
+        _umbrella_open_blocked(params)
     elif action == "umbrella_hide_folder":
         _umbrella_toggle_folder(params, show=False)
     elif action == "umbrella_show_folder":

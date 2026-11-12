@@ -112,6 +112,7 @@ class LocalStore:
                     fanart_path TEXT NOT NULL DEFAULT '',
                     fanart_folder_path TEXT NOT NULL DEFAULT '',
                     feed_path TEXT NOT NULL DEFAULT '',
+                    studio_filter_json TEXT NOT NULL DEFAULT '[]',
                     created_at INTEGER NOT NULL
                 );
 
@@ -163,6 +164,10 @@ class LocalStore:
                 connection.execute(
                     "ALTER TABLE apps ADD COLUMN feed_path TEXT NOT NULL DEFAULT ''"
                 )
+            if "studio_filter_json" not in app_columns:
+                connection.execute(
+                    "ALTER TABLE apps ADD COLUMN studio_filter_json TEXT NOT NULL DEFAULT '[]'"
+                )
             for table in ("playback_progress", "watched_history", "up_next_items"):
                 columns = {
                     row["name"]
@@ -178,7 +183,7 @@ class LocalStore:
                         "INSERT OR IGNORE INTO app_groups (name, sort_order, created_at) VALUES (?, ?, ?)",
                         (name, sort_order, int(time.time())),
                     )
-            connection.execute("PRAGMA user_version = 8")
+            connection.execute("PRAGMA user_version = 9")
 
     def save_progress(self, item):
         """Save the latest confirmed playback position for one item."""
@@ -615,7 +620,7 @@ class LocalStore:
                 rows = connection.execute(
                     """
                     SELECT package_name, title, icon_path, clearlogo_path, fanart_path,
-                           fanart_folder_path, feed_path
+                           fanart_folder_path, feed_path, studio_filter_json
                     FROM apps ORDER BY title COLLATE NOCASE
                     """
                 ).fetchall()
@@ -630,6 +635,7 @@ class LocalStore:
                            COALESCE(apps.fanart_path, '') AS fanart_path,
                            COALESCE(apps.fanart_folder_path, '') AS fanart_folder_path,
                            COALESCE(apps.feed_path, '') AS feed_path,
+                           COALESCE(apps.studio_filter_json, '[]') AS studio_filter_json,
                            members.sort_order
                     FROM app_group_members AS members
                     LEFT JOIN apps
@@ -640,7 +646,15 @@ class LocalStore:
                     """,
                     (int(group_id),),
                 ).fetchall()
-        return [dict(row) for row in rows]
+        result = []
+        for row in rows:
+            app = dict(row)
+            try:
+                app["studio_filter"] = json.loads(app.pop("studio_filter_json", "[]") or "[]")
+            except (TypeError, ValueError):
+                app["studio_filter"] = []
+            result.append(app)
+        return result
 
     def add_app(self, package_name, title, icon_path="", group_id=None):
         """Save an installed Android app and optionally add it to one group."""
@@ -684,6 +698,20 @@ class LocalStore:
             cursor = connection.execute(
                 "UPDATE apps SET feed_path = ? WHERE package_name = ?",
                 (str(feed_path or "").strip(), str(package_name)),
+            )
+            return cursor.rowcount > 0
+
+    def update_app_studio_filter(self, package_name, studios):
+        """Save exact Kodi-library studio values for one app's spotlight."""
+        values = []
+        for studio in studios or []:
+            value = str(studio or "").strip()
+            if value and value not in values:
+                values.append(value)
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "UPDATE apps SET studio_filter_json = ? WHERE package_name = ?",
+                (json.dumps(values, ensure_ascii=False), str(package_name)),
             )
             return cursor.rowcount > 0
 

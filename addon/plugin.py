@@ -84,17 +84,29 @@ def _app_match_terms(app):
 
 def _app_library_feed_path(app):
     """Return a distinct Kodi-library feed for apps with known studio metadata."""
-    if not _app_match_terms(app):
+    if not _app_match_terms(app) and not _app_selected_studios(app):
         return ""
     return _url(action="app_library_feed", package=app.get("package_name", ""))
 
 
-def _app_spotlight_feed_path(app, library_candidates):
-    """Prefer library content when matching studio artwork is available."""
+def _app_spotlight_feed_path(app):
+    """Use the app's own library query instead of gating it on cached artwork."""
     library_path = _app_library_feed_path(app)
-    if library_path and _matching_app_fanart_matches(app, library_candidates):
+    if library_path:
         return library_path
     return (app.get("feed_path") or _default_app_feed(app)).strip()
+
+
+def _app_selected_studios(app):
+    selected = app.get("studio_filter") or []
+    if isinstance(selected, str):
+        try:
+            selected = json.loads(selected)
+        except (TypeError, ValueError):
+            selected = [selected]
+    if not isinstance(selected, (list, tuple)):
+        selected = [selected]
+    return [str(studio).strip() for studio in selected if str(studio).strip()]
 ADDON = xbmcaddon.Addon(ADDON_ID)
 STORE = LocalStore(ADDON)
 
@@ -382,22 +394,34 @@ def _library_service_candidates():
     return []
 
 def _matching_app_fanart_matches(app, candidates):
-    """Return unique fanart URLs whose studio metadata matches this app brand."""
-    terms = _app_match_terms(app)
-    if not terms:
-        return []
+    """Return unique fanart URLs from the selected app studio matches."""
+    matches = []
+    for entry in _matching_app_studio_entries(app, candidates):
+        fanart = (entry.get("art") or {}).get("fanart")
+        if fanart and fanart not in matches:
+            matches.append(fanart)
+    return matches
 
+
+def _matching_app_studio_entries(app, candidates):
+    """Match library titles by chosen exact studios or provider aliases."""
+    selected = {studio.casefold() for studio in _app_selected_studios(app)}
+    terms = _app_match_terms(app)
+    if not selected and not terms:
+        return []
     matches = []
     for entry in candidates:
         studios = entry.get("studio") or []
         if not isinstance(studios, (list, tuple)):
             studios = [studios]
-        studio_text = " ".join(str(studio) for studio in studios).casefold()
-        if not any(term in studio_text for term in terms):
-            continue
-        fanart = (entry.get("art") or {}).get("fanart")
-        if fanart and fanart not in matches:
-            matches.append(fanart)
+        normalized = [str(studio).strip().casefold() for studio in studios if str(studio).strip()]
+        if selected:
+            matched = any(studio in selected for studio in normalized)
+        else:
+            studio_text = " ".join(normalized)
+            matched = any(term in studio_text for term in terms)
+        if matched:
+            matches.append(entry)
     return matches
 
 
@@ -429,21 +453,23 @@ def _matching_app_fanart_folder(app, candidates):
             return ""
         existing_dirs, existing_files = xbmcvfs.listdir(folder)
         cached_count = len(existing_files)
-        if cached_count:
-            return folder
-        for fanart in random.sample(matches, min(12, len(matches))):
+        existing_names = set(existing_files)
+        for fanart in random.sample(matches, len(matches)):
             if cached_count >= 12:
                 break
             extension = os.path.splitext(urlparse(fanart).path)[1].lower()
             if extension not in (".jpg", ".jpeg", ".png", ".webp"):
                 extension = ".jpg"
             filename = hashlib.sha1(fanart.encode("utf-8")).hexdigest() + extension
+            if filename in existing_names:
+                continue
             destination = os.path.join(folder, filename)
             if xbmcvfs.exists(destination):
                 continue
             try:
                 if xbmcvfs.copy(fanart, destination):
                     cached_count += 1
+                    existing_names.add(filename)
             except Exception as exc:
                 xbmc.log(
                     "Kodi Home: could not cache app fanart %s: %s" % (fanart, exc),
@@ -529,7 +555,7 @@ def _app_group(group_id):
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
         # Keep the app's existing feed as a fallback so the hero retains its
         # working backdrop while Kodi's library metadata catches up.
-        feed_path = _app_spotlight_feed_path(app, library_candidates)
+        feed_path = _app_spotlight_feed_path(app)
         reload_key = "%s:%s" % (package_name, feed_path or "no-feed")
         spotlight_label = label
         if feed_path.startswith(PLUGIN_URL) and "action=app_library_feed" in feed_path:
@@ -572,6 +598,10 @@ def _app_group(group_id):
                 action="app_edit_art",
                 package=package_name,
                 field="fanart",
+            )),
+            ("Choose library studios for spotlight", _url(
+                action="app_edit_studio_filter",
+                package=package_name,
             )),
             ("Browse Kodi folders for live content feed", _url(
                 action="app_browse_feed",
@@ -1178,8 +1208,7 @@ def _app_library_feed(package_name):
     if not app:
         _finish()
         return
-    terms = _app_match_terms(app)
-    if not terms:
+    if not _app_selected_studios(app) and not _app_match_terms(app):
         _finish()
         return
 
@@ -1199,8 +1228,14 @@ def _app_library_feed(package_name):
             studios = entry.get("studio") or []
             if not isinstance(studios, (list, tuple)):
                 studios = [studios]
-            studio_text = " ".join(str(studio) for studio in studios).casefold()
-            if not any(term in studio_text for term in terms):
+            selected = {studio.casefold() for studio in _app_selected_studios(app)}
+            normalized = [str(studio).strip().casefold() for studio in studios if str(studio).strip()]
+            if selected:
+                matched = any(studio in selected for studio in normalized)
+            else:
+                studio_text = " ".join(normalized)
+                matched = any(term in studio_text for term in _app_match_terms(app))
+            if not matched:
                 continue
             db_id = entry.get(id_key)
             if not db_id:
@@ -1227,6 +1262,43 @@ def _app_library_feed(package_name):
                 target = _url(action="app_library_show", db_id=db_id)
                 _video_item(title, target, info, art=entry.get("art"), context=context, folder=True)
     _finish()
+
+
+def _edit_app_studio_filter(params):
+    package_name = params.get("package", "")
+    app = next((row for row in STORE.list_apps() if row["package_name"] == package_name), None)
+    if not app:
+        _notify("App not found")
+        return
+    studios = {}
+    for method, key in (("VideoLibrary.GetMovies", "movies"), ("VideoLibrary.GetTVShows", "tvshows")):
+        result = _rpc(method, {"properties": ["studio"], "limits": {"start": 0, "end": 1000}})
+        for entry in result.get(key, []):
+            values = entry.get("studio") or []
+            if not isinstance(values, (list, tuple)):
+                values = [values]
+            for studio in values:
+                name = str(studio or "").strip()
+                if name:
+                    studios[name] = studios.get(name, 0) + 1
+    choices = sorted(studios, key=str.casefold)
+    if not choices:
+        _notify("No studio names found in Kodi Library")
+        return
+    selected = {str(value).casefold() for value in _app_selected_studios(app)}
+    labels = ["%s (%d titles)" % (name, studios[name]) for name in choices]
+    preselected = [index for index, name in enumerate(choices) if name.casefold() in selected]
+    result = xbmcgui.Dialog().multiselect(
+        "Kodi Library studios for %s" % (app.get("title") or package_name),
+        labels,
+        preselect=preselected,
+        useDetails=False,
+    )
+    if result is None:
+        return
+    STORE.update_app_studio_filter(package_name, [choices[index] for index in result])
+    _notify("Spotlight studio filter saved" if result else "Studio filter cleared; using automatic matches")
+    xbmc.executebuiltin("Container.Refresh")
 
 
 def _app_library_show(show_id):
@@ -1389,6 +1461,8 @@ def main():
         _rename_app(params)
     elif action == "app_edit_art":
         _edit_app_art(params)
+    elif action == "app_edit_studio_filter":
+        _edit_app_studio_filter(params)
     elif action == "app_edit_background_folder":
         _edit_app_background_folder(params)
     elif action == "app_browse_feed":

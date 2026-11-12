@@ -926,7 +926,7 @@
 
     <include name="Info_Plot_TextBox">
         <param name="aligny">top</param>
-        <param name="use_textbox">Skin.HasSetting(Textboxes.DisableFakeBox)</param>
+        <param name="use_textbox">true</param>
         <definition>
             <include content="Object_Control" condition="$PARAM[use_textbox]">
                 <param name="control">textbox</param>
@@ -937,6 +937,7 @@
                 <height>$PARAM[height]</height>
                 <left>40</left>
                 <font>font_main_plot</font>
+                <autoscroll delay="6000" time="3000" repeat="14000">true</autoscroll>
                 <nested />
             </include>
             <include content="Object_Control" condition="!$PARAM[use_textbox]">
@@ -1283,6 +1284,7 @@
         <param name="colordiffuse">main_fg</param>
         <param name="plotwidth">800</param>
         <param name="plotaligny">center</param>
+        <param name="use_textbox">true</param>
         <param name="visible">true</param>
         <param name="visible_line">true</param>
         <param name="visible_plot">true</param>
@@ -1339,15 +1341,14 @@
                     <visible>$PARAM[include_details]</visible>
                     <visible>!String.IsEmpty($PARAM[container]$PARAM[listitem].Cast)</visible>
                     <height>40</height>
-                    <control type="label">
+                    <control type="textbox">
                         <left>40</left>
                         <height>40</height>
                         <width>$PARAM[plotwidth]</width>
                         <font>font_main</font>
                         <textcolor>$PARAM[colordiffuse]_70</textcolor>
                         <label>Actors: $INFO[$PARAM[container]$PARAM[listitem].Cast]</label>
-                        <scroll>true</scroll>
-                        <scrollspeed>40</scrollspeed>
+                        <autoscroll delay="3500" time="2200" repeat="11000">true</autoscroll>
                     </control>
                 </control>
 

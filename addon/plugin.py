@@ -91,12 +91,15 @@ def _app_library_feed_path(app):
 
 
 def _app_spotlight_feed_path(app):
-    """Use only the feed explicitly chosen for this app.
-
-    Falling back to Kodi-library studios made unrelated library titles appear
-    in the app hero instead of the selected Umbrella network feed.
-    """
-    return (app.get("feed_path") or "").strip()
+    """Use the selected feed and filter pagination controls from its Home row."""
+    path = (app.get("feed_path") or "").strip()
+    if not path:
+        return ""
+    if "plugin.video.kodihome" in path.lower():
+        if "action=app_library_feed" in path:
+            return ""
+        return path
+    return _url(action="app_filtered_feed", path=path)
 
 
 def _app_selected_studios(app):
@@ -983,7 +986,6 @@ def _app_group(group_id):
         )
         _finish()
         return
-    library_candidates = _library_service_candidates()
     for app in apps:
         package_name = app["package_name"]
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):
@@ -993,14 +995,16 @@ def _app_group(group_id):
         if label == package_name:
             label = _android_app_label(package_name)
         item = xbmcgui.ListItem(label=label, path=target)
-        app_art = _app_art(app, _matching_app_fanart(app, library_candidates))
+        # App tiles use app artwork and explicitly chosen fanart folders only.
+        # Automatic library matching made unrelated library titles become the app hero.
+        app_art = _app_art(app)
         item.setArt(app_art)
         item.setProperty("KodiHome.AppTile", "true")
         item.setProperty(
             "KodiHome.HasClearLogo",
             "true" if app_art.get("clearlogo") else "false",
         )
-        background_folder = app.get("fanart_folder_path") or _matching_app_fanart_folder(app, library_candidates)
+        background_folder = app.get("fanart_folder_path") or ""
         if background_folder:
             item.setProperty("KodiHome.BackgroundFolder", background_folder)
         # Keep the app's existing feed as a fallback so the hero retains its
@@ -1051,6 +1055,10 @@ def _app_group(group_id):
             )),
             ("Choose library studios for spotlight", _url(
                 action="app_edit_studio_filter",
+                package=package_name,
+            )),
+            ("Choose Umbrella network feed", _url(
+                action="app_umbrella_feed_choose",
                 package=package_name,
             )),
             ("Choose live content feed path", _url(
@@ -1325,6 +1333,97 @@ def _browse_app_feed(params):
     STORE.update_app_feed(package_name, selected)
     _notify("Live content feed saved")
     xbmc.executebuiltin("Container.Refresh")
+
+
+
+def _choose_app_umbrella_feed(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        _finish()
+        return
+    networks = _umbrella_network_catalog()
+    if not networks:
+        _notify("Couldn't read Umbrella's network list")
+        _finish()
+        return
+    for network in networks:
+        _folder(network["title"], _url(
+            action="app_set_umbrella_feed",
+            package=package_name,
+            network_id=network["network_id"],
+        ))
+    _finish()
+
+
+def _set_app_umbrella_feed(params):
+    package_name = params.get("package", "")
+    if not ANDROID_PACKAGE_RE.fullmatch(package_name):
+        _notify("Invalid Android package name")
+        _finish()
+        return
+    network_id = str(params.get("network_id") or "")
+    network = next((row for row in _umbrella_network_catalog()
+                    if row["network_id"] == network_id), None)
+    if not network:
+        _notify("Umbrella network not found")
+        _finish()
+        return
+    STORE.update_app_feed(
+        package_name,
+        _umbrella_network_target(network["title"], network_id),
+    )
+    _notify("%s feed saved for app" % network["title"])
+    xbmc.executebuiltin("Container.Refresh")
+    _finish()
+
+
+def _app_filtered_feed(params):
+    """Proxy an add-on video directory while hiding its pagination button."""
+    path = str(params.get("path") or "").strip()
+    if not APP_FEED_PATH_RE.fullmatch(path) or "plugin.video.kodihome" in path.lower():
+        _notify("Invalid app content feed")
+        _finish()
+        return
+    try:
+        rows = _rpc("Files.GetDirectory", {
+            "directory": path,
+            "media": "video",
+            "properties": [
+                "title", "filetype", "thumbnail", "art", "plot", "year",
+                "genre", "rating", "runtime", "season", "episode",
+                "showtitle", "mediatype", "playcount",
+            ],
+        }).get("files", [])
+    except Exception as exc:
+        xbmc.log("Kodi Home: app feed listing failed: %s" % exc, xbmc.LOGWARNING)
+        _notify("Couldn't load this app's feed")
+        _finish()
+        return
+    for row in rows:
+        title = str(row.get("title") or row.get("label") or "").strip()
+        if re.match(r"^next\s+page(?:\s*\(\s*\d+\s*\))?$", title, re.IGNORECASE):
+            continue
+        target = str(row.get("file") or "").strip()
+        if not target:
+            continue
+        filetype = str(row.get("filetype") or "").lower()
+        is_folder = filetype in ("directory", "folder") or bool(row.get("isFolder"))
+        info = {
+            key: row[key] for key in (
+                "title", "year", "genre", "rating", "runtime", "season",
+                "episode", "showtitle", "mediatype", "playcount", "plot",
+            ) if row.get(key) not in (None, "", [], 0)
+        }
+        if not info.get("title"):
+            info["title"] = title
+        if not info.get("mediatype") and not is_folder:
+            info["mediatype"] = "video"
+        art = dict(row.get("art") or {})
+        if row.get("thumbnail") and not art.get("thumb"):
+            art["thumb"] = row["thumbnail"]
+        _video_item(title or "Untitled", target, info, art=art, folder=is_folder)
+    _finish()
 
 
 def _edit_app_feed(params):
@@ -2014,6 +2113,12 @@ def main():
         _edit_app_background_folder(params)
     elif action == "app_browse_feed":
         _browse_app_feed(params)
+    elif action == "app_umbrella_feed_choose":
+        _choose_app_umbrella_feed(params)
+    elif action == "app_set_umbrella_feed":
+        _set_app_umbrella_feed(params)
+    elif action == "app_filtered_feed":
+        _app_filtered_feed(params)
     elif action == "app_edit_feed":
         _edit_app_feed(params)
     elif action == "app_open_feed":

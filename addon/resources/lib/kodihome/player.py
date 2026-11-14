@@ -21,6 +21,7 @@ class KodiHomePlayer(xbmc.Player):
         self.playback_id = None
         self.last_saved_at = 0.0
         self.log_prefix = "Kodi Home playback"
+        self.tvshow_id_cache = {}
 
     def onAVStarted(self):
         # Kodi documents this callback as occurring once audio or video is
@@ -94,9 +95,45 @@ class KodiHomePlayer(xbmc.Player):
             )
         xbmc.log("%s: confirmed start for %s" % (self.log_prefix, item["title"]), xbmc.LOGINFO)
 
+    def _resolve_tvshow_db_id(self, show_title):
+        """Resolve a stream's show title to its local library ID when possible."""
+        import re
+
+        normalized = re.sub(r"[^a-z0-9]+", "", str(show_title or "").casefold())
+        if not normalized:
+            return None
+        if normalized in self.tvshow_id_cache:
+            return self.tvshow_id_cache[normalized] or None
+        request = {
+            "jsonrpc": "2.0",
+            "id": "kodihome-up-next-show",
+            "method": "VideoLibrary.GetTVShows",
+            "params": {
+                "properties": ["title"],
+                "limits": {"start": 0, "end": 1000},
+            },
+        }
+        try:
+            response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+            shows = response.get("result", {}).get("tvshows", [])
+            match = next(
+                (row for row in shows
+                 if re.sub(r"[^a-z0-9]+", "", str(row.get("title") or "").casefold()) == normalized),
+                None,
+            )
+            show_id = int(match.get("tvshowid") or 0) if match else 0
+        except Exception as exc:
+            xbmc.log("%s: show lookup failed for %s: %s" %
+                     (self.log_prefix, show_title, exc), xbmc.LOGDEBUG)
+            show_id = 0
+        self.tvshow_id_cache[normalized] = show_id
+        return show_id or None
+
     def _refresh_up_next(self, completed_item):
         """Select the next unwatched Kodi-library episode for this show."""
-        show_db_id = completed_item.get("tvshow_db_id")
+        show_db_id = completed_item.get("tvshow_db_id") or self._resolve_tvshow_db_id(
+            completed_item.get("show_title")
+        )
         if not show_db_id:
             return
         request = {
@@ -188,10 +225,25 @@ class KodiHomePlayer(xbmc.Player):
             list_item = self.getPlayingItem()
             tag = list_item.getVideoInfoTag()
             media_type = (tag.getMediaType() or "").lower()
-            if media_type not in ("movie", "episode") or not file_path:
+            show_title = tag.getTVShowTitle() or xbmc.getInfoLabel("VideoPlayer.TVShowTitle") or ""
+            season = int(tag.getSeason() or 0)
+            episode = int(tag.getEpisode() or 0)
+            if media_type not in ("movie", "episode"):
+                if show_title and season >= 0 and episode >= 0:
+                    media_type = "episode"
+                else:
+                    return None
+            if not file_path:
                 return None
 
             kodi_db_id = int(tag.getDbId() or 0) or None
+            tvshow_db_id = (
+                int(xbmc.getInfoLabel("VideoPlayer.TvShowDBID") or 0) or None
+                if media_type == "episode"
+                else None
+            )
+            if media_type == "episode" and not tvshow_db_id:
+                tvshow_db_id = self._resolve_tvshow_db_id(show_title)
             item_key = "%s:%s" % (media_type, kodi_db_id) if kodi_db_id else self._path_key(media_type, file_path)
             metadata = {}
             for key, method_name in (
@@ -226,14 +278,12 @@ class KodiHomePlayer(xbmc.Player):
                 "item_key": item_key,
                 "media_type": media_type,
                 "kodi_db_id": kodi_db_id,
-                "tvshow_db_id": int(xbmc.getInfoLabel("VideoPlayer.TvShowDBID") or 0) or None
-                if media_type == "episode"
-                else None,
+                "tvshow_db_id": tvshow_db_id,
                 "title": tag.getTitle() or file_path.rsplit("/", 1)[-1],
-                "show_title": tag.getTVShowTitle() or "",
+                "show_title": show_title,
                 "year": int(tag.getYear() or 0) or None,
-                "season": int(tag.getSeason() or 0) or None,
-                "episode": int(tag.getEpisode() or 0) or None,
+                "season": season or None,
+                "episode": episode or None,
                 "file_path": file_path,
                 "position_seconds": position,
                 "duration_seconds": duration,

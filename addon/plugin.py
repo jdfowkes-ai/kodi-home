@@ -1,5 +1,6 @@
 """Kodi Home local lists and Kodi-library browsing interface."""
 
+import ast
 import base64
 import hashlib
 import json
@@ -209,12 +210,24 @@ def _umbrella_folder_title(path):
     return value or "Umbrella folder"
 
 
+def _umbrella_network_id_from_path(path):
+    try:
+        if not APP_FEED_PATH_RE.fullmatch(str(path or "").strip()):
+            return ""
+        if "plugin.video.umbrella" not in str(path).lower():
+            return ""
+        outer = parse_qs(urlparse(str(path)).query)
+        if outer.get("action", [""])[0] != "tmdbTvshows":
+            return ""
+        tmdb_url = outer.get("url", [""])[0]
+        network_id = parse_qs(urlparse(tmdb_url).query).get("with_networks", [""])[0]
+        return network_id if str(network_id).isdigit() else ""
+    except Exception:
+        return ""
+
+
 def _umbrella_valid_folder(path):
-    path = str(path or "").strip()
-    return bool(
-        APP_FEED_PATH_RE.fullmatch(path)
-        and "plugin.video.umbrella" in path.lower()
-    )
+    return bool(_umbrella_network_id_from_path(path))
 
 
 def _umbrella_normalize_entries(entries):
@@ -265,9 +278,9 @@ def _save_umbrella_filter_config(config):
 
 
 def _umbrella_widget_configure():
-    _folder("Add Umbrella network folder", _url(action="umbrella_browse_add"))
-    _folder("Visible folders", _url(action="umbrella_folder_list", state="visible"))
-    _folder("Hidden folders", _url(action="umbrella_folder_list", state="hidden"))
+    _folder("Choose Umbrella networks", _url(action="umbrella_browse_add"))
+    _folder("Visible networks", _url(action="umbrella_folder_list", state="visible"))
+    _folder("Hidden networks", _url(action="umbrella_folder_list", state="hidden"))
     _folder("Open Umbrella Networks widget", _url(action="umbrella_folder_widget"))
     _folder("Set Umbrella items per page", _url(action="umbrella_page_limit"))
     _folder("Open Umbrella settings", _url(action="umbrella_settings"))
@@ -305,27 +318,94 @@ def _open_umbrella_settings():
     _finish()
 
 
+def _umbrella_network_catalog():
+    """Read Umbrella's installed network list without opening its Networks folder."""
+    if not xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
+        return []
+    try:
+        root = xbmcaddon.Addon("plugin.video.umbrella").getAddonInfo("path")
+        source_file = os.path.join(root, "resources", "lib", "indexers", "tmdb.py")
+        handle = xbmcvfs.File(source_file)
+        source = handle.read()
+        handle.close()
+        tree = ast.parse(source)
+        function = next(node for node in ast.walk(tree)
+                        if isinstance(node, ast.FunctionDef) and node.name == "get_networks")
+        values = next(node.value for node in function.body
+                      if isinstance(node, ast.Return) and isinstance(node.value, ast.List))
+        result, seen = [], set()
+        for row in values.elts:
+            if not isinstance(row, (ast.Tuple, ast.List)) or len(row.elts) < 2:
+                continue
+            name = ast.literal_eval(row.elts[0])
+            network_id = str(ast.literal_eval(row.elts[1]))
+            if name and network_id.isdigit() and network_id not in seen:
+                seen.add(network_id)
+                result.append({"title": str(name), "network_id": network_id})
+        return result
+    except Exception as exc:
+        xbmc.log("Kodi Home: could not read Umbrella network list: %s" % exc, xbmc.LOGERROR)
+        return []
+
+
+def _umbrella_network_target(title, network_id):
+    sort_fields = {0: "popularity", 1: "title", 2: "vote_average", 3: "vote_count",
+                   4: "primary_release_date", 5: "primary_release_date", 6: "primary_release_date"}
+    try:
+        umbrella = xbmcaddon.Addon("plugin.video.umbrella")
+        sort_type = int(umbrella.getSetting("sort.shows.type") or "0")
+        sort_order = int(umbrella.getSetting("sort.shows.order") or "0")
+    except Exception:
+        sort_type, sort_order = 0, 1
+    sort_by = sort_fields.get(sort_type, "popularity")
+    sort_by += ".desc" if sort_type == 0 or sort_order else ".asc"
+    tmdb_url = ("https://api.themoviedb.org/3/discover/tv?api_key=%s"
+                "&with_networks=%s&sort_by=%s&page=1") % ("%s", network_id, sort_by)
+    if sort_type == 2:
+        tmdb_url += "&vote_count.gte=500"
+    return "plugin://plugin.video.umbrella/?" + urlencode({
+        "action": "tmdbTvshows", "url": tmdb_url, "folderName": title
+    })
+
+
 def _umbrella_browse_add_folder():
-    # Do not enter Umbrella's directory tree from Kodi's browse dialog:
-    # that path has repeatedly crashed Kodi on the user's Shield.
-    selected = xbmcgui.Dialog().input(
-        "Paste Umbrella network folder plugin path",
-        defaultt="plugin://plugin.video.umbrella/",
-    ).strip()
-    if not selected or str(selected).strip() == browse_root:
-        return
-    selected = str(selected).strip()
-    if not _umbrella_valid_folder(selected):
-        _notify("Choose a folder inside Umbrella")
+    """Present a safe network chooser instead of traversing Umbrella's crash-prone folder."""
+    networks = _umbrella_network_catalog()
+    if not networks:
+        _notify("Couldn't read Umbrella's network list")
+        _finish()
         return
     config = _umbrella_filter_config()
-    entry = {"path": selected, "title": _umbrella_folder_title(selected)}
-    config["hidden"] = [row for row in config["hidden"] if row["path"] != selected]
-    if not any(row["path"] == selected for row in config["visible"]):
-        config["visible"].append(entry)
+    selected = { _umbrella_network_id_from_path(row["path"])
+                 for row in config["visible"] + config["hidden"] }
+    for network in networks:
+        if network["network_id"] not in selected:
+            _folder(network["title"], _url(action="umbrella_add_network",
+                                           network_id=network["network_id"]))
+    _finish()
+
+
+def _umbrella_add_network(params):
+    network_id = str(params.get("network_id") or "")
+    network = next((row for row in _umbrella_network_catalog()
+                    if row["network_id"] == network_id), None)
+    if not network:
+        _notify("Umbrella network not found")
+        _finish()
+        return
+    config = _umbrella_filter_config()
+    path = _umbrella_network_target(network["title"], network_id)
+    config["hidden"] = [
+        row for row in config["hidden"]
+        if _umbrella_network_id_from_path(row["path"]) != network_id
+    ]
+    if not any(_umbrella_network_id_from_path(row["path"]) == network_id
+               for row in config["visible"]):
+        config["visible"].append({"path": path, "title": network["title"]})
     _save_umbrella_filter_config(config)
-    _notify("Umbrella folder added to widget")
+    _notify("%s added to network widget" % network["title"])
     xbmc.executebuiltin("Container.Refresh")
+    _finish()
 
 
 def _umbrella_folder_list(state="visible"):
@@ -333,7 +413,7 @@ def _umbrella_folder_list(state="visible"):
     is_hidden = state == "hidden"
     entries = config["hidden" if is_hidden else "visible"]
     if not entries:
-        _notify("No %s Umbrella folders" % ("hidden" if is_hidden else "visible"))
+        _notify("No %s Umbrella networks" % ("hidden" if is_hidden else "visible"))
         _finish()
         return
     for entry in entries:
@@ -342,12 +422,11 @@ def _umbrella_folder_list(state="visible"):
         label = entry["title"]
         _video_item(
             label,
-            _url(action="umbrella_open_blocked", title=label),
-            {"title": label, "mediatype": "video",
-             "plot": "Opening this Umbrella folder is paused because it crashes Kodi on this device."},
-            context=[("Show folder" if is_hidden else "Hide folder",
+            path,
+            {"title": label, "mediatype": "tvshow"},
+            context=[("Show network" if is_hidden else "Hide network",
                       _url(action=action, path=path))],
-            folder=False,
+            folder=True,
         )
     _finish()
 
@@ -359,13 +438,12 @@ def _umbrella_folder_widget():
         label = entry["title"]
         _video_item(
             label,
-            _url(action="umbrella_open_blocked", title=label),
-            {"title": label, "mediatype": "video",
-             "plot": "Opening this Umbrella folder is paused because it crashes Kodi on this device."},
-            context=[("Hide folder", _url(action="umbrella_hide_folder", path=path))],
-            folder=False,
+            path,
+            {"title": label, "mediatype": "tvshow"},
+            context=[("Hide network", _url(action="umbrella_hide_folder", path=path))],
+            folder=True,
         )
-    _folder("Manage Umbrella network folders", _url(action="umbrella_widget_configure"))
+    _folder("Manage Umbrella networks", _url(action="umbrella_widget_configure"))
     _finish()
 
 
@@ -393,7 +471,7 @@ def _umbrella_toggle_folder(params, show=False):
     if entry and not any(row["path"] == path for row in target):
         target.append(entry)
     _save_umbrella_filter_config(config)
-    _notify("Umbrella folder shown" if show else "Umbrella folder hidden")
+    _notify("Umbrella network shown" if show else "Umbrella network hidden")
     xbmc.executebuiltin("Container.Refresh")
     _finish()
 
@@ -1894,6 +1972,8 @@ def main():
         _open_umbrella_settings()
     elif action == "umbrella_browse_add":
         _umbrella_browse_add_folder()
+    elif action == "umbrella_add_network":
+        _umbrella_add_network(params)
     elif action == "umbrella_folder_list":
         _umbrella_folder_list(params.get("state", "visible"))
     elif action == "umbrella_open_blocked":

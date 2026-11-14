@@ -90,14 +90,12 @@ def _app_library_feed_path(app):
 
 
 def _app_spotlight_feed_path(app):
-    """Prefer an explicitly selected Umbrella/add-on folder feed for this app."""
-    saved_feed = (app.get("feed_path") or "").strip()
-    if saved_feed:
-        return saved_feed
-    library_path = _app_library_feed_path(app)
-    if library_path:
-        return library_path
-    return _default_app_feed(app).strip()
+    """Use only the feed explicitly chosen for this app.
+
+    Falling back to Kodi-library studios made unrelated library titles appear
+    in the app hero instead of the selected Umbrella network feed.
+    """
+    return (app.get("feed_path") or "").strip()
 
 
 def _app_selected_studios(app):
@@ -271,20 +269,26 @@ def _umbrella_widget_configure():
     _folder("Visible folders", _url(action="umbrella_folder_list", state="visible"))
     _folder("Hidden folders", _url(action="umbrella_folder_list", state="hidden"))
     _folder("Open Umbrella Networks widget", _url(action="umbrella_folder_widget"))
+    _folder("Umbrella settings (page item limit)", _url(action="umbrella_settings"))
+    _finish()
+
+
+def _open_umbrella_settings():
+    if not xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
+        _notify("Umbrella is not installed")
+        _finish()
+        return
+    xbmc.executebuiltin("Addon.OpenSettings(plugin.video.umbrella)", wait=True)
     _finish()
 
 
 def _umbrella_browse_add_folder():
-    browse_root = "library://video/"
-    selected = xbmcgui.Dialog().browse(
-        0,
-        "Choose a folder inside Umbrella Networks",
-        "video",
-        "",
-        False,
-        False,
-        browse_root,
-    )
+    # Do not enter Umbrella's directory tree from Kodi's browse dialog:
+    # that path has repeatedly crashed Kodi on the user's Shield.
+    selected = xbmcgui.Dialog().input(
+        "Paste Umbrella network folder plugin path",
+        defaultt="plugin://plugin.video.umbrella/",
+    ).strip()
     if not selected or str(selected).strip() == browse_root:
         return
     selected = str(selected).strip()
@@ -412,7 +416,7 @@ def _art(value):
         return {}
     return {
         key: value[key]
-        for key in ("icon", "thumb", "poster", "fanart", "landscape", "clearlogo")
+        for key in ("icon", "thumb", "poster", "fanart", "landscape", "clearlogo", "discart")
         if value.get(key)
     }
 
@@ -1406,18 +1410,18 @@ def _continue_watching():
         art = row.get("art")
         saved_metadata = row.get("metadata") or {}
         details = None
-        if row.get("kodi_db_id"):
+        if int(row.get("kodi_db_id") or 0) > 0:
             try:
-                details = _details_for_item(row["media_type"], row["kodi_db_id"])
+                details = _details_for_item(row["media_type"], int(row["kodi_db_id"]))
             except Exception as exc:
                 xbmc.log("Kodi Home: Continue Watching metadata lookup failed: %s" % exc, xbmc.LOGWARNING)
         if details:
-            for key in ("title", "year", "plot", "genre", "rating", "premiered", "runtime", "mpaa", "studio", "director"):
+            for key in ("title", "year", "plot", "genre", "rating", "premiered", "mpaa", "studio", "director"):
                 value = details.get(key)
                 if value not in (None, "", []):
                     info[key] = value
             art = details.get("art") or art
-        for key in ("plot", "genre", "rating", "premiered", "runtime", "mpaa", "studio", "director", "tagline", "country"):
+        for key in ("plot", "genre", "rating", "premiered", "mpaa", "studio", "director", "tagline", "country"):
             value = saved_metadata.get(key)
             if info.get(key) in (None, "", [], 0) and value not in (None, "", []):
                 info[key] = value
@@ -1428,9 +1432,9 @@ def _continue_watching():
                 "episode": row.get("episode") or 0,
             })
             show_id = (details or {}).get("tvshowid") or row.get("tvshow_db_id")
-            if show_id:
+            if int(show_id or 0) > 0:
                 try:
-                    show = _show_details(show_id) or {}
+                    show = _show_details(int(show_id)) or {}
                 except Exception as exc:
                     xbmc.log("Kodi Home: Continue Watching show metadata lookup failed: %s" % exc, xbmc.LOGWARNING)
                     show = {}
@@ -1444,7 +1448,17 @@ def _continue_watching():
                     info["plot"] = (details or {}).get("plot") or show.get("plot", "")
                 if not info.get("premiered"):
                     info["premiered"] = (details or {}).get("firstaired") or show.get("premiered", "")
-                art = (details or {}).get("art") or show.get("art") or art
+                episode_art = dict((details or {}).get("art") or art or {})
+                show_art = dict(show.get("art") or {})
+                if show_art:
+                    art = show_art
+                elif episode_art:
+                    art = episode_art
+                if episode_art:
+                    disc_image = episode_art.get("thumb") or episode_art.get("poster") or episode_art.get("icon")
+                    if disc_image:
+                        art = dict(art or {})
+                        art["discart"] = disc_image
         play_url = _url(action="play_progress", key=row["item_key"], start=int(row.get("position_seconds") or 0))
         context = [
             ("Play from beginning", _url(action="play_progress", key=row["item_key"], start=0)),
@@ -1518,7 +1532,7 @@ def _refresh_watchlist_metadata():
     """Refresh saved Watchlist rows from their current Kodi library entries."""
     for row in STORE.list_watchlist("all"):
         db_id = row.get("kodi_db_id")
-        if not db_id:
+        if int(db_id or 0) <= 0:
             continue
         try:
             if row["media_type"] == "movie":
@@ -1555,12 +1569,22 @@ def _watchlist_items(bucket):
             "year": row.get("year") or 0,
         }
         context = [("Remove from Watchlist", _url(action="remove_watchlist", key=row["item_key"]))]
-        if row["media_type"] == "tvshow":
+        source_path = str((row.get("metadata") or {}).get("source_path") or "")
+        if row["media_type"] == "tvshow" and int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="watchlist_show", key=row["item_key"])
             _video_item(row["title"], target, info, art=row.get("metadata", {}).get("art"), context=context, folder=True)
-        elif row.get("kodi_db_id"):
+        elif int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="play_library", media_type="movie", db_id=row["kodi_db_id"], start=0)
             _video_item(row["title"], target, info, art=row.get("metadata", {}).get("art"), context=context)
+        elif source_path.startswith("plugin://"):
+            _video_item(
+                row["title"],
+                source_path,
+                info,
+                art=row.get("metadata", {}).get("art"),
+                context=context,
+                folder=row["media_type"] == "tvshow",
+            )
         else:
             _video_item(row["title"], "", info, art=row.get("metadata", {}).get("art"), context=context)
     _finish()
@@ -1568,7 +1592,7 @@ def _watchlist_items(bucket):
 
 def _watchlist_show(key):
     entries = [row for row in STORE.list_watchlist("all") if row["item_key"] == key]
-    if not entries or not entries[0].get("kodi_db_id"):
+    if not entries or int(entries[0].get("kodi_db_id") or 0) <= 0:
         _notify("This show is not linked to a Kodi library entry")
         _finish()
         return
@@ -1853,6 +1877,8 @@ def main():
         _umbrella_widget_configure()
     elif action == "umbrella_folder_widget":
         _umbrella_folder_widget()
+    elif action == "umbrella_settings":
+        _open_umbrella_settings()
     elif action == "umbrella_browse_add":
         _umbrella_browse_add_folder()
     elif action == "umbrella_folder_list":

@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.22"
+CUSTOM_ADDON_VERSION = "0.5.23"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -330,7 +330,6 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Path,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">SetProperty(AppSpotlight.Reload,$ESCINFO[$PARAM[container]ListItem.Property(KodiHome.SpotlightReload)],Home)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">CancelAlarm(AppSpotlightRefresh,true)</onfocus>
-            <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath)) + String.IsEmpty(Window(Home).Property(AppSpotlight.Refreshing)) + !String.IsEqual(Window(Home).Property(AppSpotlight.Loaded),Window(Home).Property(AppSpotlight.Reload))">AlarmClock(AppSpotlightRefresh,RunPlugin(plugin://plugin.video.kodihome/?action=refresh_app_spotlight),00:00:01,true,false)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">CancelAlarm(AppSpotlightRefresh,true)</onfocus>
             <onfocus condition="$PARAM[condition] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + !String.IsEqual($PARAM[id],301)">CancelAlarm(AppSpotlightRefresh,true)</onfocus>
             <onfocus condition="$PARAM[condition] + String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty($PARAM[container]ListItem.Property(KodiHome.LiveFeedPath))">ClearProperty(AppSpotlight.Path,Home)</onfocus>
@@ -458,7 +457,7 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
         raise RuntimeError("Could not locate the Arctic Fuse Home spotlight body")
     hero = """                <control type="wraplist" id="308">
                     <visible>!String.IsEmpty(Window(Home).Property(AppSpotlight.Path))</visible>
-                    <content>plugin://plugin.video.kodihome/?action=app_spotlight_seed</content>
+                    <content>$INFO[Window(Home).Property(AppSpotlight.Path)]</content>
                     <include content="Defs_AutoScroll">
                         <param name="condition">[!Control.HasFocus(308) | System.IdleTime(3)]</param>
                     </include>

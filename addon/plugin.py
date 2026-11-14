@@ -952,8 +952,8 @@ def _app_group(group_id):
                 action="app_edit_studio_filter",
                 package=package_name,
             )),
-            ("Browse Kodi folders for live content feed", _url(
-                action="app_browse_feed",
+            ("Choose live content feed path", _url(
+                action="app_edit_feed",
                 package=package_name,
             )),
             ("Enter live content feed path", _url(
@@ -1210,29 +1210,17 @@ def _browse_app_feed(params):
         _notify("App not found")
         return
 
-    # Start at Kodi's Videos shortcut root, where Add-ons is one of the
-    # visible choices. A non-plugin root path also lets cancellation be
-    # distinguished from a selected add-on folder.
-    browse_root = "library://video/"
-    selected = xbmcgui.Dialog().browse(
-        0,
-        "Choose a folder inside a Kodi video add-on",
-        "video",
-        "",
-        False,
-        False,
-        browse_root,
-    )
+    # Avoid Kodi's plugin-folder browser: entering Umbrella network folders
+    # crashes Kodi on this Shield.
+    selected = xbmcgui.Dialog().input(
+        "Enter Umbrella network plugin path",
+        defaultt=(app.get("feed_path") or "plugin://plugin.video.umbrella/"),
+    ).strip()
     if not selected:
         return
-    selected = str(selected).strip()
-    # Kodi returns the default path when the browser is closed without a choice.
-    if selected == browse_root:
-        return
     if not APP_FEED_PATH_RE.fullmatch(selected):
-        _notify("Choose a folder inside a Kodi video add-on")
+        _notify("Enter a Kodi plugin:// feed path")
         return
-
     STORE.update_app_feed(package_name, selected)
     _notify("Live content feed saved")
     xbmc.executebuiltin("Container.Refresh")

@@ -269,7 +269,30 @@ def _umbrella_widget_configure():
     _folder("Visible folders", _url(action="umbrella_folder_list", state="visible"))
     _folder("Hidden folders", _url(action="umbrella_folder_list", state="hidden"))
     _folder("Open Umbrella Networks widget", _url(action="umbrella_folder_widget"))
-    _folder("Umbrella settings (page item limit)", _url(action="umbrella_settings"))
+    _folder("Set Umbrella items per page", _url(action="umbrella_page_limit"))
+    _folder("Open Umbrella settings", _url(action="umbrella_settings"))
+    _finish()
+
+
+def _set_umbrella_page_limit():
+    if not xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
+        _notify("Umbrella is not installed")
+        _finish()
+        return
+    umbrella = xbmcaddon.Addon("plugin.video.umbrella")
+    options = [10, 20, 30, 40, 50, 60]
+    current = int(umbrella.getSetting("page.item.limit") or 20)
+    selected_index = xbmcgui.Dialog().select(
+        "Umbrella items per page (current: %s)" % current,
+        [str(value) for value in options],
+        preselect=options.index(current) if current in options else 1,
+    )
+    if selected_index < 0:
+        _finish()
+        return
+    value = options[selected_index]
+    umbrella.setSetting("page.item.limit", str(value))
+    _notify("Umbrella page limit set to %s" % value)
     _finish()
 
 
@@ -1865,6 +1888,8 @@ def main():
         _umbrella_widget_configure()
     elif action == "umbrella_folder_widget":
         _umbrella_folder_widget()
+    elif action == "umbrella_page_limit":
+        _set_umbrella_page_limit()
     elif action == "umbrella_settings":
         _open_umbrella_settings()
     elif action == "umbrella_browse_add":

@@ -543,6 +543,21 @@ class LocalStore:
             )
             return cursor.rowcount > 0
 
+    def consume_up_next_metadata(self, show_title, season, episode):
+        """Consume playlist-backed Up Next entries after that episode starts."""
+        if not show_title or season is None or episode is None:
+            return False
+        with self._connection() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM up_next_items
+                WHERE episode_db_id < 0 AND lower(show_title) = lower(?)
+                  AND season = ? AND episode = ?
+                """,
+                (str(show_title), int(season), int(episode)),
+            )
+            return cursor.rowcount > 0
+
     def remove_up_next(self, tvshow_db_id):
         """Remove one show's Up Next entry."""
         with self._connection() as connection:

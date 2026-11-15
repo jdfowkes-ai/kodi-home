@@ -1782,7 +1782,8 @@ def _continue_watching():
         }
         art = row.get("art") or {}
         try:
-            details = _episode_details(episode_id) or {}
+            details = _episode_details(episode_id) if episode_id > 0 else {}
+            details = details or {}
             if details:
                 for key, value in (
                     ("title", "title"), ("plot", "plot"), ("premiered", "firstaired"),
@@ -1807,8 +1808,12 @@ def _continue_watching():
             disc = art.get("thumb") or art.get("poster") or art.get("icon")
             if disc:
                 art["discart"] = disc
-        target = _umbrella_episode_target(
-            episode_id, int(row.get("tvshow_db_id") or 0)
+        target = (
+            str(row.get("file_path") or "")
+            if episode_id < 0 and row.get("file_path")
+            else _umbrella_episode_target(
+                episode_id, int(row.get("tvshow_db_id") or 0)
+            )
         )
         context = [("Remove from Up Next", _url(
             action="remove_up_next", show_id=row.get("tvshow_db_id") or 0
@@ -1887,7 +1892,9 @@ def _up_next():
                 art["discart"] = disc
         _video_item(
             label,
-            _umbrella_episode_target(row["episode_db_id"], row["tvshow_db_id"]),
+            str(row.get("file_path") or "")
+            if int(row.get("episode_db_id") or 0) < 0 and row.get("file_path")
+            else _umbrella_episode_target(row["episode_db_id"], row["tvshow_db_id"]),
             info,
             art=art,
             context=[("Remove from Up Next", _url(action="remove_up_next", show_id=row["tvshow_db_id"]))],

@@ -4,6 +4,7 @@ import hashlib
 import json
 import time
 import uuid
+from urllib.parse import parse_qs, urlparse
 
 import xbmc
 
@@ -77,8 +78,12 @@ class KodiHomePlayer(xbmc.Player):
         self._set_active_item(item)
         try:
             self.store.show_continue_watching(item["item_key"])
-            if item["media_type"] == "episode" and item.get("kodi_db_id"):
-                self.store.consume_up_next_episode(item["kodi_db_id"])
+            if item["media_type"] == "episode":
+                if item.get("kodi_db_id"):
+                    self.store.consume_up_next_episode(item["kodi_db_id"])
+                self.store.consume_up_next_metadata(
+                    item.get("show_title"), item.get("season"), item.get("episode")
+                )
             removed = self.store.remove_watchlist_for_playback(item)
             if removed:
                 xbmc.log(
@@ -150,8 +155,86 @@ class KodiHomePlayer(xbmc.Player):
         self.tvshow_id_cache[normalized] = show_id
         return show_id or None
 
+    def _umbrella_queued_next(self, completed_item):
+        """Read the next Umbrella episode from Kodi's video playlist metadata."""
+        request = {
+            "jsonrpc": "2.0",
+            "id": "kodihome-umbrella-next",
+            "method": "Playlist.GetItems",
+            "params": {
+                "playlistid": 1,
+                "properties": [
+                    "title", "file", "showtitle", "season", "episode",
+                    "art", "plot", "year", "mediatype",
+                ],
+            },
+        }
+        try:
+            response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+            if "error" in response:
+                raise RuntimeError(response["error"])
+            rows = response.get("result", {}).get("items", [])
+        except Exception as exc:
+            xbmc.log("%s: Umbrella playlist lookup failed: %s" % (self.log_prefix, exc), xbmc.LOGDEBUG)
+            return None
+
+        import re
+        normalize = lambda value: re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+        current_show = normalize(completed_item.get("show_title"))
+        current_order = (
+            int(completed_item.get("season") or 0),
+            int(completed_item.get("episode") or 0),
+        )
+        candidates = []
+        for row in rows:
+            path = str(row.get("file") or "")
+            if "plugin.video.umbrella" not in path.casefold():
+                continue
+            query = parse_qs(urlparse(path).query)
+            metadata = {}
+            try:
+                raw_meta = query.get("meta", [""])[0]
+                metadata = json.loads(raw_meta) if raw_meta else {}
+            except (TypeError, ValueError):
+                metadata = {}
+            show_title = row.get("showtitle") or metadata.get("tvshowtitle") or ""
+            season = int(row.get("season") or metadata.get("season") or 0)
+            episode_number = int(row.get("episode") or metadata.get("episode") or 0)
+            title = row.get("title") or metadata.get("title") or ""
+            if not show_title or not title or normalize(show_title) != current_show:
+                continue
+            order = (season, episode_number)
+            if order <= current_order:
+                continue
+            art = dict(row.get("art") or metadata.get("art") or {})
+            identity = "%s|%s|%s|%s" % (normalize(show_title), season, episode_number, path)
+            episode_id = -int(hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12], 16)
+            show_id = -int(hashlib.sha256(normalize(show_title).encode("utf-8")).hexdigest()[:12], 16)
+            candidates.append((
+                order,
+                show_id,
+                {
+                    "episodeid": episode_id,
+                    "showtitle": show_title,
+                    "title": title,
+                    "season": season,
+                    "episode": episode_number,
+                    "file": path,
+                    "art": art,
+                },
+            ))
+        if not candidates:
+            return None
+        candidates.sort(key=lambda candidate: candidate[0])
+        _, show_id, episode = candidates[0]
+        return show_id, episode
+
     def _refresh_up_next(self, completed_item):
-        """Select the next unwatched Kodi-library episode for this show."""
+        """Select an Umbrella queued episode first, then a library fallback."""
+        queued = self._umbrella_queued_next(completed_item)
+        if queued:
+            self.store.set_up_next(queued[0], completed_item["item_key"], queued[1])
+            return
         show_db_id = completed_item.get("tvshow_db_id") or self._resolve_tvshow_db_id(
             completed_item.get("show_title")
         )

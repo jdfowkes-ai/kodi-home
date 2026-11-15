@@ -95,6 +95,27 @@ class KodiHomePlayer(xbmc.Player):
             )
         xbmc.log("%s: confirmed start for %s" % (self.log_prefix, item["title"]), xbmc.LOGINFO)
 
+    def _resolve_tvshow_id_from_episode(self, episode_db_id):
+        """Resolve the parent show directly from Kodi's current episode metadata."""
+        if not episode_db_id:
+            return None
+        request = {
+            "jsonrpc": "2.0",
+            "id": "kodihome-up-next-episode",
+            "method": "VideoLibrary.GetEpisodeDetails",
+            "params": {
+                "episodeid": int(episode_db_id),
+                "properties": ["tvshowid", "showtitle", "season", "episode"],
+            },
+        }
+        try:
+            response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+            details = response.get("result", {}).get("episodedetails") or {}
+            return int(details.get("tvshowid") or 0) or None
+        except Exception as exc:
+            xbmc.log("%s: episode parent lookup failed: %s" % (self.log_prefix, exc), xbmc.LOGDEBUG)
+            return None
+
     def _resolve_tvshow_db_id(self, show_title):
         """Resolve a stream's show title to its local library ID when possible."""
         import re
@@ -242,6 +263,8 @@ class KodiHomePlayer(xbmc.Player):
                 if media_type == "episode"
                 else None
             )
+            if media_type == "episode" and not tvshow_db_id:
+                tvshow_db_id = self._resolve_tvshow_id_from_episode(kodi_db_id)
             if media_type == "episode" and not tvshow_db_id:
                 tvshow_db_id = self._resolve_tvshow_db_id(show_title)
             item_key = "%s:%s" % (media_type, kodi_db_id) if kodi_db_id else self._path_key(media_type, file_path)

@@ -91,13 +91,15 @@ def _app_library_feed_path(app):
 
 
 def _app_spotlight_feed_path(app):
-    """Use the selected feed and filter pagination controls from its Home row."""
-    path = (app.get("feed_path") or "").strip()
+    """Use a selected feed, then a matching Umbrella network feed, filtering pagination controls."""
+    path = str(app.get("feed_path") or "").strip()
+    if "plugin.video.kodihome" in path.lower() and "action=app_library_feed" in path:
+        path = ""
+    if not path:
+        path = _default_app_feed(app)
     if not path:
         return ""
     if "plugin.video.kodihome" in path.lower():
-        if "action=app_library_feed" in path:
-            return ""
         return path
     return _url(action="app_filtered_feed", path=path)
 
@@ -284,9 +286,40 @@ def _umbrella_widget_configure():
     _folder("Choose Umbrella networks", _url(action="umbrella_browse_add"))
     _folder("Visible networks", _url(action="umbrella_folder_list", state="visible"))
     _folder("Hidden networks", _url(action="umbrella_folder_list", state="hidden"))
+    _folder("Add Umbrella Networks to Kodi Favourites", _url(action="umbrella_add_favourite", path=_url(action="umbrella_folder_widget"), title="Umbrella Networks"))
     _folder("Open Umbrella Networks widget", _url(action="umbrella_folder_widget"))
     _folder("Set Umbrella items per page", _url(action="umbrella_page_limit"))
     _folder("Open Umbrella settings", _url(action="umbrella_settings"))
+    _finish()
+
+
+def _add_umbrella_favourite(params):
+    """Add a titled Umbrella widget or network shortcut to Kodi's Favourites."""
+    path = str(params.get("path") or _url(action="umbrella_folder_widget")).strip()
+    if not (path.startswith("plugin://plugin.video.kodihome/") or
+            path.startswith("plugin://plugin.video.umbrella/")):
+        _notify("Invalid Umbrella favourite path")
+        _finish()
+        return
+    default_title = str(params.get("title") or "Umbrella Networks")
+    title = xbmcgui.Dialog().input(
+        "Kodi Favourite title",
+        default_title,
+        type=xbmcgui.INPUT_ALPHANUM,
+    ).strip()
+    if not title:
+        _finish()
+        return
+    try:
+        _rpc("Favourites.AddFavourite", {
+            "title": title,
+            "type": "media",
+            "path": path,
+        })
+        _notify("Added %s to Kodi Favourites" % title)
+    except Exception as exc:
+        xbmc.log("Kodi Home: could not add favourite: %s" % exc, xbmc.LOGERROR)
+        _notify("Couldn't add that Kodi Favourite")
     _finish()
 
 
@@ -427,8 +460,13 @@ def _umbrella_folder_list(state="visible"):
             label,
             path,
             {"title": label, "mediatype": "tvshow"},
-            context=[("Show network" if is_hidden else "Hide network",
-                      _url(action=action, path=path))],
+            context=[
+                ("Show network" if is_hidden else "Hide network",
+                 _url(action=action, path=path)),
+                *([] if is_hidden else [("Add to Kodi Favourites", _url(
+                    action="umbrella_add_favourite", path=path, title=label
+                ))]),
+            ],
             folder=True,
         )
     _finish()
@@ -443,7 +481,12 @@ def _umbrella_folder_widget():
             label,
             path,
             {"title": label, "mediatype": "tvshow"},
-            context=[("Hide network", _url(action="umbrella_hide_folder", path=path))],
+            context=[
+                ("Hide network", _url(action="umbrella_hide_folder", path=path)),
+                ("Add to Kodi Favourites", _url(
+                    action="umbrella_add_favourite", path=path, title=label
+                )),
+            ],
             folder=True,
         )
     _folder("Manage Umbrella networks", _url(action="umbrella_widget_configure"))
@@ -485,12 +528,46 @@ def _umbrella_folder_widget_disabled():
 
 
 def _default_app_feed(app):
-    """Return a live Kodi add-on feed preset when its provider add-on is installed."""
+    """Return the matching Umbrella network feed for a streaming app."""
+    title_key = re.sub(r"[^a-z0-9]+", "", str(app.get("title") or "").casefold())
     package_name = str(app.get("package_name") or "")
     if package_name == "com.google.android.youtube.tv":
-        return YOUTUBE_PUBLIC_FEED_PATH
+        title_key = "youtube"
 
-    title_key = re.sub(r"[^a-z0-9]+", "", str(app.get("title") or "").casefold())
+    aliases = {
+        "appletv": ("Apple TV+",),
+        "appletvplus": ("Apple TV+",),
+        "bbciplayer": ("BBC One",),
+        "iplayer": ("BBC One",),
+        "iplayerwww": ("BBC One",),
+        "channel4": ("Channel 4",),
+        "all4": ("Channel 4",),
+        "disneyplus": ("Disney+",),
+        "hbomax": ("HBO Max", "HBO"),
+        "max": ("HBO Max", "HBO"),
+        "itvx": ("ITV",),
+        "netflix": ("Netflix",),
+        "paramount": ("Paramount+",),
+        "paramountplus": ("Paramount+",),
+        "primevideo": ("Amazon",),
+        "amazonprimevideo": ("Amazon",),
+        "youtube": ("YouTube Premium",),
+    }
+    wanted = aliases.get(title_key, ())
+    if wanted and xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
+        networks = _umbrella_network_catalog()
+        by_name = {
+            re.sub(r"[^a-z0-9]+", "", network["title"].casefold()): network
+            for network in networks
+        }
+        for name in wanted:
+            match = by_name.get(re.sub(r"[^a-z0-9]+", "", name.casefold()))
+            if match:
+                return _umbrella_network_target(match["title"], match["network_id"])
+
+    # Retain usable built-in feeds if Umbrella is unavailable or lacks a match.
+    if title_key == "youtube":
+        return YOUTUBE_PUBLIC_FEED_PATH
     if title_key in ("bbciplayer", "iplayer", "iplayerwww") and xbmc.getCondVisibility(
         "System.HasAddon(plugin.video.iplayerwww)"
     ):
@@ -535,10 +612,18 @@ def _folder(label, target, art=None):
     xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=True)
 
 
-def _video_item(label, target, info, art=None, context=None, folder=False, properties=None):
+def _video_item(label, target, info, art=None, context=None, folder=False, properties=None, resume=None):
     item = xbmcgui.ListItem(label=label)
     item.setInfo("video", info)
     item.setArt(_art(art))
+    if resume:
+        try:
+            item.getVideoInfoTag().setResumePoint(
+                float(resume.get("position") or 0),
+                float(resume.get("total") or 0),
+            )
+        except Exception as exc:
+            xbmc.log("Kodi Home: could not set item resume point: %s" % exc, xbmc.LOGDEBUG)
     for key, value in (properties or {}).items():
         item.setProperty(key, str(value))
     if not folder:
@@ -1585,7 +1670,8 @@ def _root():
 
 
 def _continue_watching():
-    for row in STORE.list_continue_watching():
+    progress_rows = STORE.list_continue_watching()
+    for row in progress_rows:
         suffix = " · S%02dE%02d" % (row.get("season") or 0, row.get("episode") or 0) if row["media_type"] == "episode" else ""
         label = (row.get("show_title") + suffix + " · " if row.get("show_title") else "") + row["title"]
         info = {
@@ -1661,8 +1747,121 @@ def _continue_watching():
             ("Remove from Continue Watching", _url(action="remove_continue", key=row["item_key"])),
         ]
         context = [entry for entry in context if entry]
-        _video_item(label, play_url, info, art=art, context=context)
+        duration_seconds = float(row.get("duration_seconds") or 0)
+        position_seconds = float(row.get("position_seconds") or 0)
+        percent = (position_seconds / duration_seconds * 100.0) if duration_seconds > 0 else 0.0
+        _video_item(
+            label,
+            play_url,
+            info,
+            art=art,
+            context=context,
+            properties={"KodiHome.ProgressPercent": "%.1f" % min(100.0, max(0.0, percent))},
+            resume={"position": position_seconds, "total": duration_seconds},
+        )
+
+    in_progress_keys = {row.get("item_key") for row in progress_rows}
+    for row in STORE.list_up_next():
+        episode_id = int(row.get("episode_db_id") or 0)
+        item_key = "episode:%s" % episode_id
+        if not episode_id or item_key in in_progress_keys:
+            continue
+        label = "%s · S%02dE%02d · %s" % (
+            row.get("show_title") or "TV show",
+            row.get("season") or 0,
+            row.get("episode") or 0,
+            row.get("title") or "Next episode",
+        )
+        info = {
+            "title": row.get("title") or "Next episode",
+            "tvshowtitle": row.get("show_title", ""),
+            "mediatype": "episode",
+            "season": row.get("season") or 0,
+            "episode": row.get("episode") or 0,
+            "playcount": 0,
+        }
+        art = row.get("art") or {}
+        try:
+            details = _episode_details(episode_id) or {}
+            if details:
+                for key, value in (
+                    ("title", "title"), ("plot", "plot"), ("premiered", "firstaired"),
+                    ("rating", "rating"), ("runtime", "runtime"),
+                ):
+                    if details.get(value) not in (None, "", [], 0):
+                        info[key] = details[value]
+                if not info.get("tvshowtitle"):
+                    info["tvshowtitle"] = details.get("showtitle", "")
+                art = details.get("art") or art
+            if int(row.get("tvshow_db_id") or 0) > 0:
+                show = _show_details(int(row["tvshow_db_id"])) or {}
+                for key in ("year", "genre", "rating", "mpaa", "studio"):
+                    if show.get(key) not in (None, "", [], 0):
+                        info.setdefault(key, show[key])
+                if show.get("art"):
+                    art = show["art"]
+        except Exception as exc:
+            xbmc.log("Kodi Home: Up Next metadata lookup failed: %s" % exc, xbmc.LOGDEBUG)
+        art = dict(art or {})
+        if not art.get("discart"):
+            disc = art.get("thumb") or art.get("poster") or art.get("icon")
+            if disc:
+                art["discart"] = disc
+        target = _umbrella_episode_target(
+            episode_id, int(row.get("tvshow_db_id") or 0)
+        )
+        context = [("Remove from Up Next", _url(
+            action="remove_up_next", show_id=row.get("tvshow_db_id") or 0
+        ))]
+        _video_item(label, target, info, art=art, context=context)
+
     _finish()
+
+
+def _umbrella_episode_target(episode_id, show_id):
+    """Build an Umbrella source lookup for an episode selected as Up Next."""
+    library_target = _url(
+        action="play_library", media_type="episode", db_id=episode_id, start=0
+    )
+    if not xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
+        return library_target
+    try:
+        episode = _episode_details(int(episode_id)) or {}
+        show = _show_details(int(show_id)) or {}
+        if not episode:
+            return library_target
+        uniqueids = show.get("uniqueid") or {}
+        title = str(episode.get("title") or "")
+        show_title = str(show.get("title") or episode.get("showtitle") or "")
+        metadata = {
+            "title": title,
+            "tvshowtitle": show_title,
+            "year": show.get("year") or 0,
+            "season": episode.get("season") or 0,
+            "episode": episode.get("episode") or 0,
+            "mediatype": "episode",
+            "plot": episode.get("plot") or "",
+            "premiered": episode.get("firstaired") or "",
+            "uniqueid": uniqueids,
+            "art": episode.get("art") or {},
+        }
+        params = {
+            "action": "play_Item",
+            "title": title,
+            "year": str(show.get("year") or ""),
+            "imdb": str(uniqueids.get("imdb") or ""),
+            "tmdb": str(uniqueids.get("tmdb") or ""),
+            "tvdb": str(uniqueids.get("tvdb") or ""),
+            "season": str(episode.get("season") or 0),
+            "episode": str(episode.get("episode") or 0),
+            "tvshowtitle": show_title,
+            "premiered": str(episode.get("firstaired") or ""),
+            "meta": json.dumps(metadata, ensure_ascii=False, separators=(",", ":")),
+        }
+        return "plugin://plugin.video.umbrella/?" + urlencode(params)
+    except Exception as exc:
+        xbmc.log("Kodi Home: couldn't build Umbrella Up Next target: %s" % exc, xbmc.LOGWARNING)
+        return library_target
 
 
 def _up_next():
@@ -1681,11 +1880,16 @@ def _up_next():
             "episode": row.get("episode") or 0,
             "dbid": row["episode_db_id"],
         }
+        art = dict(row.get("art") or {})
+        if not art.get("discart"):
+            disc = art.get("thumb") or art.get("poster") or art.get("icon")
+            if disc:
+                art["discart"] = disc
         _video_item(
             label,
-            _url(action="play_library", media_type="episode", db_id=row["episode_db_id"], start=0),
+            _umbrella_episode_target(row["episode_db_id"], row["tvshow_db_id"]),
             info,
-            art=row.get("art"),
+            art=art,
             context=[("Remove from Up Next", _url(action="remove_up_next", show_id=row["tvshow_db_id"]))],
         )
     _finish()
@@ -2063,6 +2267,8 @@ def main():
         _run_kodi_favourite(params)
     elif action == "umbrella_widget_configure":
         _umbrella_widget_configure()
+    elif action == "umbrella_add_favourite":
+        _add_umbrella_favourite(params)
     elif action == "umbrella_folder_widget":
         _umbrella_folder_widget()
     elif action == "umbrella_page_limit":

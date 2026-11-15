@@ -1756,7 +1756,7 @@ def _continue_watching():
             info,
             art=art,
             context=context,
-            properties={"KodiHome.ProgressPercent": "%.1f" % min(100.0, max(0.0, percent))},
+            properties={"KodiHome.ProgressPercent": str(int(round(min(100.0, max(0.0, percent)))))},
             resume={"position": position_seconds, "total": duration_seconds},
         )
 

@@ -57,12 +57,16 @@ def repository_addon_xml():
 def build(site_dir, skin_source):
     site_dir.mkdir(parents=True, exist_ok=True)
     addon_source = PROJECT_ROOT / "addon"
+    browse_source = PROJECT_ROOT / "browse-series"
     plugin_xml, plugin_id, plugin_version = addon_metadata(addon_source / "addon.xml")
+    browse_xml, browse_id, browse_version = addon_metadata(browse_source / "addon.xml")
     skin_xml, skin_id, skin_version = addon_metadata(skin_source / "addon.xml")
 
     plugin_zip = site_dir / (plugin_id + "-" + plugin_version + ".zip")
+    browse_zip = site_dir / (browse_id + "-" + browse_version + ".zip")
     skin_zip = site_dir / skin_id / (skin_id + "-" + skin_version + ".zip")
     package_addon(addon_source, plugin_zip, plugin_id)
+    package_addon(browse_source, browse_zip, browse_id)
     package_addon(skin_source, skin_zip, skin_id)
 
     # Kodi resolves downloads as <datadir>/<addon id>/<package zip>.
@@ -72,6 +76,10 @@ def build(site_dir, skin_source):
     plugin_package_dir = site_dir / plugin_id
     plugin_package_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(plugin_zip, plugin_package_dir / plugin_zip.name)
+
+    browse_package_dir = site_dir / browse_id
+    browse_package_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(browse_zip, browse_package_dir / browse_zip.name)
 
     repo_id = "repository.kodihome"
     repo_version = "1.0.1"
@@ -85,7 +93,7 @@ def build(site_dir, skin_source):
     package_addon(repo_root, repo_zip, repo_id)
 
     addons = ET.Element("addons")
-    for source_xml in (addon_source / "addon.xml", skin_source / "addon.xml", repo_xml_path):
+    for source_xml in (addon_source / "addon.xml", browse_source / "addon.xml", skin_source / "addon.xml", repo_xml_path):
         addons.append(ET.parse(source_xml).getroot())
     ET.indent(addons, space="    ")
     addons_path = site_dir / "addons.xml"
@@ -96,6 +104,7 @@ def build(site_dir, skin_source):
     links = (
         repo_zip.name,
         plugin_zip.name,
+        browse_zip.name,
         skin_id + "/" + skin_zip.name,
         "addons.xml",
         "addons.xml.md5",
@@ -118,8 +127,8 @@ def build(site_dir, skin_source):
         + '</body>' + newline + '</html>' + newline,
         encoding="utf-8",
     )
-    print("Built repository site for %s %s and %s %s" % (
-        plugin_id, plugin_version, skin_id, skin_version
+    print("Built repository site for Kodi Home %s, Browse Series %s, and skin %s" % (
+        plugin_version, browse_version, skin_version
     ))
 
 

@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - "addon/**"
+      - "browse-series/**"
       - "skin/**"
       - "tools/apply_skin_overlay.py"
       - "tools/build_kodi_repository.py"

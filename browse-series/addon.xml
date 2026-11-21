@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon id="plugin.video.browseseries"
+       name="Browse Series"
+       version="0.1.0"
+       provider-name="jdfowkes-ai">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0" />
+    </requires>
+    <extension point="xbmc.python.pluginsource" library="default.py">
+        <provides>video</provides>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en_GB">Browse Umbrella local TV series history</summary>
+        <description lang="en_GB">Opens Umbrella's Local: Finish Watching series, sorted by the most recently played episode.</description>
+        <platform>all</platform>
+    </extension>
+</addon>

@@ -275,7 +275,7 @@ class KodiHomePlayer(xbmc.Player):
         plugin_root = "plugin://plugin.video.umbrella/"
         properties = [
             "title", "file", "art", "plot", "year", "season", "episode",
-            "playcount", "premiered", "mediatype", "uniqueid",
+            "playcount", "premiered", "uniqueid",
         ]
 
         def get_directory(path, request_id):

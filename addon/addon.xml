@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.kodihome"
        name="Kodi Home"
-       version="0.5.49"
+       version="0.5.50"
        provider-name="jdfowkes-ai">
     <requires>
         <import addon="xbmc.python" version="3.0.0" />
@@ -19,8 +19,8 @@
         </menu>
     </extension>
     <extension point="xbmc.addon.metadata">
-        <summary lang="en_GB">Local playback lists and NVIDIA Shield app groups</summary>
-        <description lang="en_GB">Locally managed Continue Watching, Up Next, History, and Watchlist, with NVIDIA Shield app groups, Kodi Favourites widgets, per-app artwork, and configurable live feeds selected from Kodi video folders.</description>
+        <summary lang="en_GB">Manual Watchlist and NVIDIA Shield app groups</summary>
+        <description lang="en_GB">Manually managed Watchlist, NVIDIA Shield app groups, Kodi Favourites widgets, per-app artwork, and configurable live feeds selected from Kodi video folders. Playback does not change Watchlist entries.</description>
         <platform>all</platform>
     </extension>
 </addon>

@@ -271,8 +271,8 @@ class LocalStore:
     def list_watchlist(self, bucket="all", today=None):
         """Return watchlist rows filtered as all, released, or unreleased.
 
-        Missing release dates remain in the unreleased bucket until metadata is
-        available; callers can refresh metadata without removing the entry.
+        Only confirmed future dates are unreleased. Missing dates are treated as
+        released so old titles do not incorrectly fill the Unreleased view.
         """
         if bucket not in ("all", "released", "unreleased"):
             raise ValueError("bucket must be 'all', 'released', or 'unreleased'")
@@ -280,14 +280,14 @@ class LocalStore:
         if bucket == "released":
             query = """
                 SELECT * FROM watchlist_items
-                WHERE release_date IS NOT NULL AND release_date <= ?
+                WHERE release_date IS NULL OR release_date <= ?
                 ORDER BY added_at DESC
             """
             params = (today,)
         elif bucket == "unreleased":
             query = """
                 SELECT * FROM watchlist_items
-                WHERE release_date IS NULL OR release_date > ?
+                WHERE release_date IS NOT NULL AND release_date > ?
                 ORDER BY added_at DESC
             """
             params = (today,)

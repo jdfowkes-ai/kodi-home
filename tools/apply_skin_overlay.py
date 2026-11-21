@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.24"
+CUSTOM_ADDON_VERSION = "0.5.25"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -493,6 +493,33 @@ def apply_app_spotlight_overlay(skin_root: Path) -> None:
     hubs_file.write_text(hubs, encoding="utf-8")
 
 
+
+def apply_episode_art_fallback(skin_root: Path) -> None:
+    """Use episode stills when Umbrella local progress items have no poster art."""
+    images_file = skin_root / "1080i/script-skinvariables-images-includes.xml"
+    source = images_file.read_text(encoding="utf-8")
+    fallbacks = (
+        (
+            '<value condition="!String.IsEmpty(Container(450).ListItem.Icon)">$INFO[Container(450).ListItem.Icon]</value>',
+            '<value condition="!String.IsEmpty(Container(450).ListItem.Art(thumb))">$INFO[Container(450).ListItem.Art(thumb)]</value>\n        <value condition="!String.IsEmpty(Container(450).ListItem.Art(landscape))">$INFO[Container(450).ListItem.Art(landscape)]</value>\n        <value condition="!String.IsEmpty(Container(450).ListItem.Icon)">$INFO[Container(450).ListItem.Icon]</value>',
+        ),
+        (
+            '<value condition="!String.IsEmpty(ListItem.Icon)">$INFO[ListItem.Icon]</value>',
+            '<value condition="!String.IsEmpty(ListItem.Art(thumb))">$INFO[ListItem.Art(thumb)]</value>\n        <value condition="!String.IsEmpty(ListItem.Art(landscape))">$INFO[ListItem.Art(landscape)]</value>\n        <value condition="!String.IsEmpty(ListItem.Icon)">$INFO[ListItem.Icon]</value>',
+        ),
+        (
+            '<value condition="!String.IsEmpty(Container.ListItem.Icon)">$INFO[Container.ListItem.Icon]</value>',
+            '<value condition="!String.IsEmpty(Container.ListItem.Art(thumb))">$INFO[Container.ListItem.Art(thumb)]</value>\n        <value condition="!String.IsEmpty(Container.ListItem.Art(landscape))">$INFO[Container.ListItem.Art(landscape)]</value>\n        <value condition="!String.IsEmpty(Container.ListItem.Icon)">$INFO[Container.ListItem.Icon]</value>',
+        ),
+    )
+    for old, new in fallbacks:
+        if source.count(old) != 1:
+            raise RuntimeError("Could not safely locate an Arctic Fuse poster fallback")
+        source = source.replace(old, new, 1)
+    ET.fromstring(source)
+    images_file.write_text(source, encoding="utf-8")
+
+
 def apply_overlay(skin_root: Path) -> None:
     addon_xml = skin_root / "addon.xml"
     if not addon_xml.is_file():
@@ -517,6 +544,7 @@ def apply_overlay(skin_root: Path) -> None:
     apply_keep_changes_focus_overlay(skin_root)
     apply_app_background_overlay(skin_root)
     apply_app_background_slideshow_overlay(skin_root)
+    apply_episode_art_fallback(skin_root)
 
     for relative_path, payload in assets.items():
         destination = skin_root / relative_path

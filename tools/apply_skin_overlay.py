@@ -500,22 +500,31 @@ def apply_episode_art_fallback(skin_root: Path) -> None:
     source = images_file.read_text(encoding="utf-8")
     fallbacks = (
         (
+            "Image_Poster_C450",
             '<value condition="!String.IsEmpty(Container(450).ListItem.Icon)">$INFO[Container(450).ListItem.Icon]</value>',
             '<value condition="!String.IsEmpty(Container(450).ListItem.Art(thumb))">$INFO[Container(450).ListItem.Art(thumb)]</value>\n        <value condition="!String.IsEmpty(Container(450).ListItem.Art(landscape))">$INFO[Container(450).ListItem.Art(landscape)]</value>\n        <value condition="!String.IsEmpty(Container(450).ListItem.Icon)">$INFO[Container(450).ListItem.Icon]</value>',
         ),
         (
+            "Image_Poster",
             '<value condition="!String.IsEmpty(ListItem.Icon)">$INFO[ListItem.Icon]</value>',
             '<value condition="!String.IsEmpty(ListItem.Art(thumb))">$INFO[ListItem.Art(thumb)]</value>\n        <value condition="!String.IsEmpty(ListItem.Art(landscape))">$INFO[ListItem.Art(landscape)]</value>\n        <value condition="!String.IsEmpty(ListItem.Icon)">$INFO[ListItem.Icon]</value>',
         ),
         (
+            "Image_Poster_Container",
             '<value condition="!String.IsEmpty(Container.ListItem.Icon)">$INFO[Container.ListItem.Icon]</value>',
             '<value condition="!String.IsEmpty(Container.ListItem.Art(thumb))">$INFO[Container.ListItem.Art(thumb)]</value>\n        <value condition="!String.IsEmpty(Container.ListItem.Art(landscape))">$INFO[Container.ListItem.Art(landscape)]</value>\n        <value condition="!String.IsEmpty(Container.ListItem.Icon)">$INFO[Container.ListItem.Icon]</value>',
         ),
     )
-    for old, new in fallbacks:
-        if source.count(old) != 1:
-            raise RuntimeError("Could not safely locate an Arctic Fuse poster fallback")
-        source = source.replace(old, new, 1)
+    for name, old, new in fallbacks:
+        opening = '<variable name="%s">' % name
+        start = source.find(opening)
+        end = source.find("</variable>", start + len(opening))
+        if start < 0 or end < 0:
+            raise RuntimeError("Could not locate Arctic Fuse poster variable %s" % name)
+        block = source[start:end]
+        if block.count(old) != 1:
+            raise RuntimeError("Could not safely locate poster fallback in %s" % name)
+        source = source[:start] + block.replace(old, new, 1) + source[end:]
     ET.fromstring(source)
     images_file.write_text(source, encoding="utf-8")
 

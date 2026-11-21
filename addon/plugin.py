@@ -7,6 +7,7 @@ import json
 import os
 import random
 import re
+import sqlite3
 import sys
 import time
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -27,7 +28,7 @@ ADDON_ID = "plugin.video.kodihome"
 PLUGIN_URL = "plugin://%s/" % ADDON_ID
 YOUTUBE_PUBLIC_FEED_PATH = "plugin://plugin.video.youtube/special/popular_right_now"
 BBC_IPLAYER_POPULAR_FEED_PATH = "plugin://plugin.video.iplayerwww/?mode=105"
-UMBRELLA_BROWSE_SERIES_PATH = "plugin://plugin.video.umbrella/?action=local_shows_progress"
+UMBRELLA_PROGRESS_PATH = "plugin://plugin.video.umbrella/?action=local_shows_progress&url=localprogress"
 APP_FEED_PATH_RE = re.compile(r"^plugin://[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./%?=&+%-]*)?$")
 HANDLE = int(sys.argv[1])
 
@@ -1658,7 +1659,7 @@ def _edit_app_background_folder(params):
 
 
 def _root():
-    _folder("Browse Series", UMBRELLA_BROWSE_SERIES_PATH)
+    _folder("Browse Series", _url(action="browse_series"))
     _folder("Apps", _url(action="apps"))
     _folder("Kodi Favourites", _url(action="kodi_favourites"))
     _folder("Umbrella Networks widget", _url(action="umbrella_folder_widget"))
@@ -1673,6 +1674,134 @@ def _watchlist():
     _folder("Released", _url(action="watchlist_items", bucket="released"))
     _folder("Unreleased", _url(action="watchlist_items", bucket="unreleased"))
     _finish()
+
+
+def _umbrella_progress_metadata():
+    """Return Umbrella's enriched in-progress show items indexed by stable IDs."""
+    try:
+        result = _rpc(
+            "Files.GetDirectory",
+            {
+                "directory": UMBRELLA_PROGRESS_PATH,
+                "media": "video",
+                "properties": [
+                    "title", "year", "premiered", "plot", "genre", "art",
+                    "file", "uniqueid",
+                ],
+            },
+        )
+    except Exception as exc:
+        xbmc.log("Kodi Home: could not read Umbrella progress metadata: %s" % exc, xbmc.LOGDEBUG)
+        return {}
+    indexed = {}
+    for item in result.get("files", []):
+        unique = item.get("uniqueid") or {}
+        for key in ("imdb", "tmdb", "tvdb"):
+            value = str(unique.get(key) or "").strip()
+            if value:
+                indexed[(key, value)] = item
+    return indexed
+
+
+def _library_show_metadata():
+    """Return Kodi library shows indexed by IMDb, TMDb and TVDb IDs."""
+    try:
+        result = _rpc(
+            "VideoLibrary.GetTVShows",
+            {"properties": ["title", "year", "premiered", "plot", "genre", "art", "uniqueid"]},
+        )
+    except Exception as exc:
+        xbmc.log("Kodi Home: could not read TV library metadata: %s" % exc, xbmc.LOGDEBUG)
+        return {}
+    indexed = {}
+    for item in result.get("tvshows", []):
+        unique = item.get("uniqueid") or {}
+        for key in ("imdb", "tmdb", "tvdb"):
+            value = str(unique.get(key) or "").strip()
+            if value:
+                indexed[(key, value)] = item
+    return indexed
+
+
+def _browse_series():
+    """Group Umbrella's complete watched-episode history into recent series."""
+    if not xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
+        _notify("Install and enable Umbrella to browse series history")
+        _finish("tvshows")
+        return
+    try:
+        umbrella = xbmcaddon.Addon("plugin.video.umbrella")
+        database = os.path.join(xbmcvfs.translatePath(umbrella.getAddonInfo("profile")), "watched.db")
+        connection = sqlite3.connect("file:%s?mode=ro" % database, uri=True, timeout=10)
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            """
+            SELECT imdb_id, tmdb_id, season, episode, title, last_played
+            FROM watched
+            WHERE media_type = 'episode' AND overlay = 5
+            ORDER BY CAST(last_played AS INTEGER) DESC
+            """
+        ).fetchall()
+        connection.close()
+    except Exception as exc:
+        xbmc.log("Kodi Home: could not read Umbrella watched history: %s" % exc, xbmc.LOGERROR)
+        _notify("Umbrella watched history could not be read")
+        _finish("tvshows")
+        return
+
+    latest = []
+    seen = set()
+    for raw in rows:
+        row = dict(raw)
+        imdb = str(row.get("imdb_id") or "").strip()
+        tmdb = str(row.get("tmdb_id") or "").strip()
+        identity = ("imdb", imdb) if imdb and imdb != "0" else (("tmdb", tmdb) if tmdb and tmdb != "0" else None)
+        if not identity or identity in seen:
+            continue
+        seen.add(identity)
+        latest.append(row)
+
+    progress = _umbrella_progress_metadata()
+    library = _library_show_metadata()
+    for row in latest:
+        imdb = str(row.get("imdb_id") or "").strip()
+        tmdb = str(row.get("tmdb_id") or "").strip()
+        keys = [("imdb", imdb), ("tmdb", tmdb)]
+        metadata = next((progress[key] for key in keys if key[1] and key in progress), None)
+        metadata = metadata or next((library[key] for key in keys if key[1] and key in library), {})
+        unique = metadata.get("uniqueid") or {}
+        imdb = imdb or str(unique.get("imdb") or "")
+        tmdb = tmdb or str(unique.get("tmdb") or "")
+        tvdb = str(unique.get("tvdb") or "")
+        title = str(metadata.get("title") or row.get("title") or imdb or tmdb or "Unknown series")
+        year = int(metadata.get("year") or 0)
+        art = metadata.get("art") or {}
+        target = str(metadata.get("file") or "")
+        if not target.startswith("plugin://plugin.video.umbrella/"):
+            target = "plugin://plugin.video.umbrella/?" + urlencode({
+                "action": "seasons",
+                "tvshowtitle": title,
+                "year": year or "",
+                "imdb": imdb,
+                "tmdb": tmdb,
+                "tvdb": tvdb,
+                "art": json.dumps(art, separators=(",", ":")),
+            })
+        season = int(row.get("season") or 0)
+        episode = int(row.get("episode") or 0)
+        plot = str(metadata.get("plot") or "")
+        last_episode = "Last watched: S%02dE%02d" % (season, episode)
+        info = {
+            "title": title,
+            "tvshowtitle": title,
+            "mediatype": "tvshow",
+            "year": year,
+            "premiered": metadata.get("premiered") or "",
+            "plot": (last_episode + ("\n\n" + plot if plot else "")),
+            "genre": metadata.get("genre") or [],
+        }
+        _video_item(title, target, info, art=art, folder=True)
+    _finish("tvshows")
 
 
 def _refresh_watchlist_metadata():
@@ -1693,6 +1822,9 @@ def _refresh_watchlist_metadata():
             metadata = row.get("metadata") or {}
             metadata["art"] = details.get("art") or metadata.get("art", {})
             metadata["uniqueid"] = details.get("uniqueid") or metadata.get("uniqueid", {})
+            for key in ("plot", "genre", "rating", "mpaa", "runtime", "studio"):
+                if details.get(key) not in (None, "", []):
+                    metadata[key] = details[key]
             STORE.refresh_watchlist_metadata({
                 "item_key": row["item_key"],
                 "title": details.get("title") or row["title"],
@@ -1710,30 +1842,38 @@ def _refresh_watchlist_metadata():
 def _watchlist_items(bucket):
     _refresh_watchlist_metadata()
     for row in STORE.list_watchlist(bucket=bucket):
+        metadata = row.get("metadata") or {}
         info = {
             "title": row["title"],
             "mediatype": row["media_type"],
             "year": row.get("year") or 0,
+            "premiered": row.get("release_date") or "",
+            "plot": metadata.get("plot") or "",
+            "genre": metadata.get("genre") or [],
+            "rating": metadata.get("rating") or 0,
+            "mpaa": metadata.get("mpaa") or "",
+            "runtime": metadata.get("runtime") or 0,
+            "studio": metadata.get("studio") or [],
         }
         context = [("Remove from Watchlist", _url(action="remove_watchlist", key=row["item_key"]))]
-        source_path = str((row.get("metadata") or {}).get("source_path") or "")
+        source_path = str(metadata.get("source_path") or "")
         if row["media_type"] == "tvshow" and int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="watchlist_show", key=row["item_key"])
-            _video_item(row["title"], target, info, art=row.get("metadata", {}).get("art"), context=context, folder=True)
+            _video_item(row["title"], target, info, art=metadata.get("art"), context=context, folder=True)
         elif int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="play_library", media_type="movie", db_id=row["kodi_db_id"], start=0)
-            _video_item(row["title"], target, info, art=row.get("metadata", {}).get("art"), context=context)
+            _video_item(row["title"], target, info, art=metadata.get("art"), context=context)
         elif source_path.startswith("plugin://"):
             _video_item(
                 row["title"],
                 source_path,
                 info,
-                art=row.get("metadata", {}).get("art"),
+                art=metadata.get("art"),
                 context=context,
                 folder=row["media_type"] == "tvshow",
             )
         else:
-            _video_item(row["title"], "", info, art=row.get("metadata", {}).get("art"), context=context)
+            _video_item(row["title"], "", info, art=metadata.get("art"), context=context)
     _finish()
 
 
@@ -2008,6 +2148,8 @@ def main():
 
     if action == "root":
         _root()
+    elif action == "browse_series":
+        _browse_series()
     elif action == "apps":
         _app_groups()
     elif action == "kodi_favourites":

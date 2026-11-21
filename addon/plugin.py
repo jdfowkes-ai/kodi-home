@@ -1724,7 +1724,7 @@ def _library_show_metadata():
 
 
 def _browse_series():
-    """Group Umbrella's complete watched-episode history into recent series."""
+    """Show Umbrella Local: In Progress series in last-played order."""
     if not xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
         _notify("Install and enable Umbrella to browse series history")
         _finish("tvshows")
@@ -1749,46 +1749,45 @@ def _browse_series():
         _finish("tvshows")
         return
 
-    latest = []
-    seen = set()
+    last_played = {}
+    last_episode = {}
     for raw in rows:
         row = dict(raw)
         imdb = str(row.get("imdb_id") or "").strip()
         tmdb = str(row.get("tmdb_id") or "").strip()
-        identity = ("imdb", imdb) if imdb and imdb != "0" else (("tmdb", tmdb) if tmdb and tmdb != "0" else None)
-        if not identity or identity in seen:
-            continue
-        seen.add(identity)
-        latest.append(row)
+        timestamp = int(row.get("last_played") or 0)
+        for identity in (("imdb", imdb), ("tmdb", tmdb)):
+            if not identity[1] or identity[1] == "0" or identity in last_played:
+                continue
+            last_played[identity] = timestamp
+            last_episode[identity] = (
+                int(row.get("season") or 0),
+                int(row.get("episode") or 0),
+            )
 
     progress = _umbrella_progress_metadata()
-    library = _library_show_metadata()
-    for row in latest:
-        imdb = str(row.get("imdb_id") or "").strip()
-        tmdb = str(row.get("tmdb_id") or "").strip()
-        keys = [("imdb", imdb), ("tmdb", tmdb)]
-        metadata = next((progress[key] for key in keys if key[1] and key in progress), None)
-        metadata = metadata or next((library[key] for key in keys if key[1] and key in library), {})
+    shows = []
+    seen_files = set()
+    for metadata in progress.values():
+        target = str(metadata.get("file") or "")
+        if not target.startswith("plugin://plugin.video.umbrella/") or target in seen_files:
+            continue
+        seen_files.add(target)
         unique = metadata.get("uniqueid") or {}
-        imdb = imdb or str(unique.get("imdb") or "")
-        tmdb = tmdb or str(unique.get("tmdb") or "")
-        tvdb = str(unique.get("tvdb") or "")
-        title = str(metadata.get("title") or row.get("title") or imdb or tmdb or "Unknown series")
+        keys = [
+            ("imdb", str(unique.get("imdb") or "").strip()),
+            ("tmdb", str(unique.get("tmdb") or "").strip()),
+        ]
+        timestamp = max((last_played.get(key, 0) for key in keys if key[1]), default=0)
+        episode_position = next((last_episode[key] for key in keys if key[1] and key in last_episode), (0, 0))
+        shows.append((timestamp, episode_position, metadata, target))
+
+    shows.sort(key=lambda entry: entry[0], reverse=True)
+    for _, episode_position, metadata, target in shows:
+        title = str(metadata.get("title") or "Unknown series")
         year = int(metadata.get("year") or 0)
         art = metadata.get("art") or {}
-        target = str(metadata.get("file") or "")
-        if not target.startswith("plugin://plugin.video.umbrella/"):
-            target = "plugin://plugin.video.umbrella/?" + urlencode({
-                "action": "seasons",
-                "tvshowtitle": title,
-                "year": year or "",
-                "imdb": imdb,
-                "tmdb": tmdb,
-                "tvdb": tvdb,
-                "art": json.dumps(art, separators=(",", ":")),
-            })
-        season = int(row.get("season") or 0)
-        episode = int(row.get("episode") or 0)
+        season, episode = episode_position
         plot = str(metadata.get("plot") or "")
         last_episode = "Last watched: S%02dE%02d" % (season, episode)
         info = {

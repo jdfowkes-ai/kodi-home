@@ -351,44 +351,6 @@ class LocalStore:
             )
             return cursor.rowcount > 0
 
-    def remove_watchlist_for_playback(self, item):
-        """Remove a movie or parent show after Kodi confirms AV playback."""
-        with self._connection() as connection:
-            if item["media_type"] == "movie":
-                cursor = connection.execute(
-                    """
-                    DELETE FROM watchlist_items
-                    WHERE item_key = ?
-                       OR (kodi_db_id IS NOT NULL AND kodi_db_id = ? AND media_type = 'movie')
-                    """,
-                    (item["item_key"], item.get("kodi_db_id")),
-                )
-                return cursor.rowcount > 0
-
-            if item["media_type"] == "episode":
-                show_db_id = item.get("tvshow_db_id")
-                if show_db_id:
-                    cursor = connection.execute(
-                        """
-                        DELETE FROM watchlist_items
-                        WHERE media_type = 'tvshow' AND kodi_db_id = ?
-                        """,
-                        (show_db_id,),
-                    )
-                    return cursor.rowcount > 0
-                # A stable parent key can be supplied by a future metadata resolver.
-                show_item_key = item.get("show_item_key")
-                if show_item_key:
-                    cursor = connection.execute(
-                        """
-                        DELETE FROM watchlist_items
-                        WHERE media_type = 'tvshow' AND item_key = ?
-                        """,
-                        (show_item_key,),
-                    )
-                    return cursor.rowcount > 0
-        return False
-
     def list_watchlist(self, bucket="all", today=None):
         """Return watchlist rows filtered as all, released, or unreleased.
 

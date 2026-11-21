@@ -9,7 +9,6 @@ import xbmc
 import xbmcaddon
 import xbmcvfs
 
-from resources.lib.kodihome import KodiHomePlayer, LocalStore
 
 
 ADDON = xbmcaddon.Addon()
@@ -61,23 +60,15 @@ def _refresh_app_artwork_cache():
 
 
 def main():
-    monitor = xbmc.Monitor()
-    try:
-        store = LocalStore(ADDON)
-        player = KodiHomePlayer(store)
-    except Exception as exc:
-        xbmc.log("%s: service could not start: %s" % (LOG_PREFIX, exc), xbmc.LOGERROR)
-        return
-
-    xbmc.log("%s: local playback service started" % LOG_PREFIX, xbmc.LOGINFO)
-    threading.Thread(target=_refresh_app_artwork_cache, name="KodiHomeAppArtCache", daemon=True).start()
-    try:
-        while not monitor.abortRequested():
-            player.tick()
-            if monitor.waitForAbort(5):
-                break
-    finally:
-        xbmc.log("%s: local playback service stopped" % LOG_PREFIX, xbmc.LOGINFO)
+    # The service now only refreshes the Apps hub's background artwork cache.
+    # Playback is not monitored, and Watchlist entries remain until manually removed.
+    worker = threading.Thread(
+        target=_refresh_app_artwork_cache,
+        name="KodiHomeAppArtCache",
+        daemon=False,
+    )
+    worker.start()
+    worker.join()
 
 
 if __name__ == "__main__":

@@ -1,14 +1,56 @@
 """SQLite persistence for Kodi Home playback and personal lists."""
 
 import json
+import re
 import sqlite3
 import time
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import xbmcaddon
 import xbmcvfs
+
+
+def _release_date_value(value):
+    """Return a comparable date for Kodi/TMDb date strings, or None.
+
+    Kodi add-ons do not always return ``premiered`` in the same format.  In
+    addition to ISO dates, existing Watchlist rows can contain timestamps or
+    UK-formatted display dates.  Unknown values are deliberately treated as
+    missing so they cannot make an old title look unreleased.
+    """
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value or "").strip()
+    if not text:
+        return None
+
+    iso_prefix = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})", text)
+    if iso_prefix:
+        try:
+            return date(*(int(part) for part in iso_prefix.groups()))
+        except ValueError:
+            return None
+
+    for pattern in (
+        "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
+        "%d %b %Y", "%d %B %Y",
+        "%b %d, %Y", "%B %d, %Y",
+    ):
+        try:
+            return datetime.strptime(text, pattern).date()
+        except ValueError:
+            pass
+
+    if re.fullmatch(r"\d{4}", text):
+        try:
+            return date(int(text), 1, 1)
+        except ValueError:
+            return None
+    return None
 
 
 class LocalStore:
@@ -276,29 +318,21 @@ class LocalStore:
         """
         if bucket not in ("all", "released", "unreleased"):
             raise ValueError("bucket must be 'all', 'released', or 'unreleased'")
-        today = today or date.today().isoformat()
-        if bucket == "released":
-            query = """
-                SELECT * FROM watchlist_items
-                WHERE release_date IS NULL OR release_date <= ?
-                ORDER BY added_at DESC
-            """
-            params = (today,)
-        elif bucket == "unreleased":
-            query = """
-                SELECT * FROM watchlist_items
-                WHERE release_date IS NOT NULL AND release_date > ?
-                ORDER BY added_at DESC
-            """
-            params = (today,)
-        else:
-            query = "SELECT * FROM watchlist_items ORDER BY added_at DESC"
-            params = ()
+        today_value = _release_date_value(today) if today is not None else date.today()
+        if today_value is None:
+            today_value = date.today()
+        query = "SELECT * FROM watchlist_items ORDER BY added_at DESC"
         with self._connection() as connection:
-            rows = connection.execute(query, params).fetchall()
+            rows = connection.execute(query).fetchall()
         result = []
         for row in rows:
             item = dict(row)
+            release_value = _release_date_value(item.get("release_date"))
+            is_unreleased = release_value is not None and release_value > today_value
+            if bucket == "released" and is_unreleased:
+                continue
+            if bucket == "unreleased" and not is_unreleased:
+                continue
             item["metadata"] = json.loads(item.pop("metadata_json"))
             result.append(item)
         return result

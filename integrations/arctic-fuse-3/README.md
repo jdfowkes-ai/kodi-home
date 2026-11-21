@@ -1,15 +1,12 @@
 # Arctic Fuse 3 integration files
 
-`homewidgets.json` contains Kodi Home's six local list sources in the same label/icon/path/target format used by the inspected Arctic Fuse 3 Skin Shortcuts widget preset.
+`homewidgets.json` contains Kodi Home's three manual Watchlist sources in the same label/icon/path/target format used by the inspected Arctic Fuse 3 Skin Shortcuts widget preset.
 
 ## What it provides
 
-- Continue Watching
-- Up Next
-- History
 - Watchlist: All, Released, and Unreleased
 
-Each source uses Kodi Home's plugin URL and returns Kodi video-library items with their available artwork.
+Each Watchlist source uses Kodi Home's plugin URL and returns Kodi video-library items with their available artwork.
 
 ## Important setup note
 

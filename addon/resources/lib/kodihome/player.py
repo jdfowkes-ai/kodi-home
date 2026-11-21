@@ -4,7 +4,7 @@ import hashlib
 import json
 import time
 import uuid
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import xbmc
 
@@ -229,8 +229,182 @@ class KodiHomePlayer(xbmc.Player):
         _, show_id, episode = candidates[0]
         return show_id, episode
 
+    def _umbrella_catalog_next(self, completed_item):
+        """Resolve the next unwatched episode from Umbrella without a Kodi library scan."""
+        import re
+
+        def normalize(value):
+            return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+
+        show_title = str(completed_item.get("show_title") or "").strip()
+        current_show = normalize(show_title)
+        if not current_show:
+            return None
+        metadata = dict(completed_item.get("metadata") or {})
+        tmdb = str(metadata.get("tmdb") or "")
+        imdb = str(metadata.get("imdb") or "")
+        tvdb = str(metadata.get("tvdb") or "")
+        if not (tmdb or imdb or tvdb):
+            xbmc.log(
+                "%s: Umbrella catalogue lookup skipped; playback item has no TMDb/IMDb/TVDB ID"
+                % self.log_prefix,
+                xbmc.LOGDEBUG,
+            )
+            return None
+
+        year = str(completed_item.get("year") or "")
+        current_season = int(completed_item.get("season") or 0)
+        current_episode = int(completed_item.get("episode") or 0)
+        show_id = -int(hashlib.sha256(current_show.encode("utf-8")).hexdigest()[:12], 16)
+        show_meta = {
+            "tvshowtitle": show_title,
+            "year": year,
+            "tmdb": tmdb,
+            "imdb": imdb,
+            "tvdb": tvdb,
+            "mediatype": "tvshow",
+        }
+        common = {
+            "tvshowtitle": show_title,
+            "year": year,
+            "imdb": imdb,
+            "tmdb": tmdb,
+            "tvdb": tvdb,
+            "meta": json.dumps(show_meta, separators=(",", ":")),
+        }
+        plugin_root = "plugin://plugin.video.umbrella/"
+        properties = [
+            "title", "file", "art", "plot", "year", "season", "episode",
+            "playcount", "premiered", "mediatype", "uniqueid",
+        ]
+
+        def get_directory(path, request_id):
+            request = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": "Files.GetDirectory",
+                "params": {
+                    "directory": path,
+                    "media": "files",
+                    "properties": properties,
+                    "limits": {"start": 0, "end": 1000},
+                },
+            }
+            response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+            if "error" in response:
+                raise RuntimeError(response["error"])
+            return response.get("result", {}).get("files", [])
+
+        def episode_candidates(rows, minimum_order):
+            candidates = []
+            for row in rows:
+                path = str(row.get("file") or "")
+                if "plugin.video.umbrella" not in path.casefold():
+                    continue
+                query = parse_qs(urlparse(path).query)
+                try:
+                    raw_meta = query.get("meta", [""])[0]
+                    episode_meta = json.loads(raw_meta) if raw_meta else {}
+                except (TypeError, ValueError):
+                    episode_meta = {}
+                title = row.get("title") or episode_meta.get("title") or ""
+                episode_show = row.get("showtitle") or episode_meta.get("tvshowtitle") or show_title
+                try:
+                    season = int(row.get("season") or episode_meta.get("season") or 0)
+                    number = int(row.get("episode") or episode_meta.get("episode") or 0)
+                    playcount = int(row.get("playcount") or episode_meta.get("playcount") or 0)
+                except (TypeError, ValueError):
+                    continue
+                order = (season, number)
+                if (
+                    not title
+                    or normalize(episode_show) != current_show
+                    or order <= minimum_order
+                    or number <= 0
+                    or str(episode_meta.get("unaired", "")).casefold() == "true"
+                    or playcount > 0
+                ):
+                    continue
+                candidates.append((order, row, episode_meta, path, title, episode_show))
+            candidates.sort(key=lambda candidate: candidate[0])
+            history = self.store.list_history(limit=500)
+            for order, row, episode_meta, path, title, episode_show in candidates:
+                already_completed = any(
+                    normalize(previous.get("show_title")) == current_show
+                    and int(previous.get("season") or 0) == order[0]
+                    and int(previous.get("episode") or 0) == order[1]
+                    for previous in history
+                )
+                if already_completed:
+                    continue
+                identity = "%s|%s|%s|%s" % (current_show, order[0], order[1], path)
+                episode_id = -int(hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12], 16)
+                art = dict(row.get("art") or episode_meta.get("art") or {})
+                return {
+                    "episodeid": episode_id,
+                    "showtitle": episode_show,
+                    "title": title,
+                    "season": order[0],
+                    "episode": order[1],
+                    "file": path,
+                    "art": art,
+                }
+            return None
+
+        try:
+            # Umbrella's seasons directory gives the exact seasons that exist;
+            # query the current season first, then later seasons in order.
+            seasons_url = plugin_root + "?" + urlencode({
+                "action": "seasons",
+                **common,
+                "art": json.dumps(completed_item.get("art") or {}, separators=(",", ":")),
+            })
+            season_rows = get_directory(seasons_url, "kodihome-umbrella-seasons")
+            seasons = {}
+            for row in season_rows:
+                season_path = str(row.get("file") or "")
+                season_query = parse_qs(urlparse(season_path).query)
+                try:
+                    season_number = int(season_query.get("season", [""])[0])
+                except (TypeError, ValueError):
+                    label_match = re.search(r"season\s*(\d+)", str(row.get("label") or ""), re.I)
+                    if not label_match:
+                        continue
+                    season_number = int(label_match.group(1))
+                if season_number >= current_season and season_path:
+                    seasons[season_number] = season_path
+
+            if current_season not in seasons:
+                seasons[current_season] = plugin_root + "?" + urlencode({
+                    "action": "episodes",
+                    **common,
+                    "season": current_season,
+                })
+            ordered_seasons = [current_season] + sorted(
+                season for season in seasons if season > current_season
+            )
+            for season_number in ordered_seasons:
+                rows = get_directory(
+                    seasons[season_number],
+                    "kodihome-umbrella-episodes-%s" % season_number,
+                )
+                minimum_order = (
+                    current_season,
+                    current_episode,
+                ) if season_number == current_season else (season_number, 0)
+                episode = episode_candidates(rows, minimum_order)
+                if episode:
+                    return show_id, episode
+        except Exception as exc:
+            xbmc.log(
+                "%s: Umbrella catalogue lookup failed for %s: %s"
+                % (self.log_prefix, show_title, exc),
+                xbmc.LOGWARNING,
+            )
+        return None
+
     def _refresh_up_next(self, completed_item):
-        """Select an Umbrella queued episode first, then a library fallback."""
+        """Prefer a queued episode, then the library, then Umbrella's catalogue."""
         queued = self._umbrella_queued_next(completed_item)
         if queued:
             self.store.set_up_next(queued[0], completed_item["item_key"], queued[1])
@@ -238,67 +412,65 @@ class KodiHomePlayer(xbmc.Player):
         show_db_id = completed_item.get("tvshow_db_id") or self._resolve_tvshow_db_id(
             completed_item.get("show_title")
         )
-        if not show_db_id:
-            return
-        request = {
-            "jsonrpc": "2.0",
-            "id": "kodihome-up-next",
-            "method": "VideoLibrary.GetEpisodes",
-            "params": {
-                "tvshowid": show_db_id,
-                "properties": [
-                    "episodeid",
-                    "title",
-                    "showtitle",
-                    "season",
-                    "episode",
-                    "playcount",
-                    "file",
-                    "art",
-                ],
-                "limits": {"start": 0, "end": 500},
-            },
-        }
-        try:
-            response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
-            if "error" in response:
-                raise RuntimeError(response["error"])
-            episodes = response.get("result", {}).get("episodes", [])
-            current_order = (
-                int(completed_item.get("season") or 0),
-                int(completed_item.get("episode") or 0),
-            )
-            candidates = [
-                episode
-                for episode in episodes
-                if episode.get("episodeid")
-                and (
-                    int(episode.get("season") or 0),
-                    int(episode.get("episode") or 0),
+        if show_db_id:
+            request = {
+                "jsonrpc": "2.0",
+                "id": "kodihome-up-next",
+                "method": "VideoLibrary.GetEpisodes",
+                "params": {
+                    "tvshowid": show_db_id,
+                    "properties": [
+                        "episodeid", "title", "showtitle", "season", "episode",
+                        "playcount", "file", "art",
+                    ],
+                    "limits": {"start": 0, "end": 500},
+                },
+            }
+            try:
+                response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+                if "error" in response:
+                    raise RuntimeError(response["error"])
+                episodes = response.get("result", {}).get("episodes", [])
+                current_order = (
+                    int(completed_item.get("season") or 0),
+                    int(completed_item.get("episode") or 0),
                 )
-                > current_order
-            ]
-            candidates.sort(
-                key=lambda episode: (
-                    int(episode.get("season") or 0),
-                    int(episode.get("episode") or 0),
+                candidates = [
+                    episode for episode in episodes
+                    if episode.get("episodeid")
+                    and (
+                        int(episode.get("season") or 0),
+                        int(episode.get("episode") or 0),
+                    ) > current_order
+                ]
+                candidates.sort(
+                    key=lambda episode: (
+                        int(episode.get("season") or 0),
+                        int(episode.get("episode") or 0),
+                    )
                 )
-            )
-            for episode in candidates:
-                if int(episode.get("playcount") or 0) > 0:
-                    continue
-                episode_key = "episode:%s" % episode["episodeid"]
-                if self.store.is_completed(episode_key):
-                    continue
-                self.store.set_up_next(
-                    show_db_id, completed_item["item_key"], episode
+                for episode in candidates:
+                    if int(episode.get("playcount") or 0) > 0:
+                        continue
+                    episode_key = "episode:%s" % episode["episodeid"]
+                    if self.store.is_completed(episode_key):
+                        continue
+                    self.store.set_up_next(
+                        show_db_id, completed_item["item_key"], episode
+                    )
+                    return
+                self.store.clear_up_next(show_db_id)
+            except Exception as exc:
+                xbmc.log(
+                    "%s: could not refresh Kodi-library Up Next: %s"
+                    % (self.log_prefix, exc),
+                    xbmc.LOGWARNING,
                 )
-                return
-            self.store.clear_up_next(show_db_id)
-        except Exception as exc:
-            xbmc.log(
-                "%s: could not refresh Up Next: %s" % (self.log_prefix, exc),
-                xbmc.LOGWARNING,
+
+        catalog_next = self._umbrella_catalog_next(completed_item)
+        if catalog_next:
+            self.store.set_up_next(
+                catalog_next[0], completed_item["item_key"], catalog_next[1]
             )
 
     def _set_active_item(self, item):
@@ -352,6 +524,13 @@ class KodiHomePlayer(xbmc.Player):
                 tvshow_db_id = self._resolve_tvshow_db_id(show_title)
             item_key = "%s:%s" % (media_type, kodi_db_id) if kodi_db_id else self._path_key(media_type, file_path)
             metadata = {}
+            for unique_id in ("tmdb", "imdb", "tvdb"):
+                try:
+                    value = tag.getUniqueID(unique_id)
+                    if value:
+                        metadata[unique_id] = str(value)
+                except Exception:
+                    pass
             for key, method_name in (
                 ("plot", "getPlot"),
                 ("genre", "getGenres"),

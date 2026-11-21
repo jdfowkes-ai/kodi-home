@@ -27,6 +27,7 @@ ADDON_ID = "plugin.video.kodihome"
 PLUGIN_URL = "plugin://%s/" % ADDON_ID
 YOUTUBE_PUBLIC_FEED_PATH = "plugin://plugin.video.youtube/special/popular_right_now"
 BBC_IPLAYER_POPULAR_FEED_PATH = "plugin://plugin.video.iplayerwww/?mode=105"
+UMBRELLA_BROWSE_SERIES_PATH = "plugin://plugin.video.umbrella/?action=local_shows_progress"
 APP_FEED_PATH_RE = re.compile(r"^plugin://[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./%?=&+%-]*)?$")
 HANDLE = int(sys.argv[1])
 
@@ -1657,6 +1658,7 @@ def _edit_app_background_folder(params):
 
 
 def _root():
+    _folder("Browse Series", UMBRELLA_BROWSE_SERIES_PATH)
     _folder("Apps", _url(action="apps"))
     _folder("Kodi Favourites", _url(action="kodi_favourites"))
     _folder("Umbrella Networks widget", _url(action="umbrella_folder_widget"))

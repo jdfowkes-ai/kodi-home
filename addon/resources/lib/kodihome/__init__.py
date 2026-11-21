@@ -1,6 +1,5 @@
-"""Kodi Home local playback components."""
+"""Kodi Home local list persistence components."""
 
-from .player import KodiHomePlayer
 from .store import LocalStore
 
-__all__ = ("KodiHomePlayer", "LocalStore")
+__all__ = ("LocalStore",)

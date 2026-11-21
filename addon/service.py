@@ -62,13 +62,15 @@ def _refresh_app_artwork_cache():
 def main():
     # The service now only refreshes the Apps hub's background artwork cache.
     # Playback is not monitored, and Watchlist entries remain until manually removed.
+    monitor = xbmc.Monitor()
     worker = threading.Thread(
         target=_refresh_app_artwork_cache,
         name="KodiHomeAppArtCache",
-        daemon=False,
+        daemon=True,
     )
     worker.start()
-    worker.join()
+    while worker.is_alive() and not monitor.waitForAbort(1):
+        pass
 
 
 if __name__ == "__main__":

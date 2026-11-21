@@ -1661,262 +1661,8 @@ def _root():
     _folder("Kodi Favourites", _url(action="kodi_favourites"))
     _folder("Umbrella Networks widget", _url(action="umbrella_folder_widget"))
     _folder("Configure Umbrella Networks widget", _url(action="umbrella_widget_configure"))
-    _folder("Continue Watching", _url(action="list", name="continue"))
-    _folder("Up Next", _url(action="list", name="up_next"))
-    _folder("History", _url(action="list", name="history"))
     _folder("Watchlist", _url(action="watchlist"))
     _folder("Add from Kodi library", _url(action="add_library"))
-    _finish()
-
-
-def _continue_watching():
-    progress_rows = STORE.list_continue_watching()
-    for row in progress_rows:
-        suffix = " · S%02dE%02d" % (row.get("season") or 0, row.get("episode") or 0) if row["media_type"] == "episode" else ""
-        label = (row.get("show_title") + suffix + " · " if row.get("show_title") else "") + row["title"]
-        info = {
-            "title": row["title"],
-            "mediatype": row["media_type"],
-            "year": row.get("year") or 0,
-            "duration": int(row.get("duration_seconds") or 0),
-            "playcount": 0,
-        }
-        art = row.get("art")
-        saved_metadata = row.get("metadata") or {}
-        details = None
-        if int(row.get("kodi_db_id") or 0) > 0:
-            try:
-                details = _details_for_item(row["media_type"], int(row["kodi_db_id"]))
-            except Exception as exc:
-                xbmc.log("Kodi Home: Continue Watching metadata lookup failed: %s" % exc, xbmc.LOGWARNING)
-        if details:
-            for key in ("title", "year", "plot", "genre", "rating", "premiered", "mpaa", "studio", "director"):
-                value = details.get(key)
-                if value not in (None, "", []):
-                    info[key] = value
-            art = details.get("art") or art
-        for key in ("plot", "genre", "rating", "premiered", "mpaa", "studio", "director", "tagline", "country"):
-            value = saved_metadata.get(key)
-            if info.get(key) in (None, "", [], 0) and value not in (None, "", []):
-                info[key] = value
-        if row["media_type"] == "episode":
-            info.update({
-                "tvshowtitle": (details or {}).get("showtitle") or row.get("show_title", ""),
-                "season": row.get("season") or 0,
-                "episode": row.get("episode") or 0,
-            })
-            show_id = (details or {}).get("tvshowid") or row.get("tvshow_db_id")
-            if int(show_id or 0) > 0:
-                try:
-                    show = _show_details(int(show_id)) or {}
-                except Exception as exc:
-                    xbmc.log("Kodi Home: Continue Watching show metadata lookup failed: %s" % exc, xbmc.LOGWARNING)
-                    show = {}
-                for key in ("year", "genre", "rating", "mpaa", "studio"):
-                    if info.get(key) in (None, "", [], 0) and show.get(key) not in (None, "", []):
-                        info[key] = show[key]
-                for key in ("plot", "genre", "rating", "mpaa", "studio", "premiered"):
-                    if info.get(key) in (None, "", [], 0) and saved_metadata.get(key) not in (None, "", []):
-                        info[key] = saved_metadata[key]
-                if not info.get("plot"):
-                    info["plot"] = (details or {}).get("plot") or show.get("plot", "")
-                if not info.get("premiered"):
-                    info["premiered"] = (details or {}).get("firstaired") or show.get("premiered", "")
-                episode_art = dict((details or {}).get("art") or art or {})
-                show_art = dict(show.get("art") or {})
-                if show_art:
-                    art = show_art
-                elif episode_art:
-                    art = episode_art
-                if episode_art:
-                    disc_image = episode_art.get("thumb") or episode_art.get("poster") or episode_art.get("icon")
-                    if disc_image:
-                        art = dict(art or {})
-                        art["discart"] = disc_image
-        play_url = _url(action="play_progress", key=row["item_key"], start=int(row.get("position_seconds") or 0))
-        context = [
-            ("Play from beginning", _url(action="play_progress", key=row["item_key"], start=0)),
-            ("Add to Watchlist", _url(
-                action="add_watchlist",
-                media_type="movie" if row["media_type"] == "movie" else "tvshow",
-                db_id=row.get("kodi_db_id") if row["media_type"] == "movie" else row.get("tvshow_db_id"),
-            )) if (
-                (row["media_type"] == "movie" and row.get("kodi_db_id"))
-                or (row["media_type"] == "episode" and (row.get("tvshow_db_id") or (details or {}).get("tvshowid")))
-            ) else None,
-            ("Remove from Continue Watching", _url(action="remove_continue", key=row["item_key"])),
-        ]
-        context = [entry for entry in context if entry]
-        duration_seconds = float(row.get("duration_seconds") or 0)
-        position_seconds = float(row.get("position_seconds") or 0)
-        percent = (position_seconds / duration_seconds * 100.0) if duration_seconds > 0 else 0.0
-        _video_item(
-            label,
-            play_url,
-            info,
-            art=art,
-            context=context,
-            properties={"KodiHome.ProgressPercent": str(int(round(min(100.0, max(0.0, percent)))))},
-            resume={"position": position_seconds, "total": duration_seconds},
-        )
-
-    in_progress_keys = {row.get("item_key") for row in progress_rows}
-    for row in STORE.list_up_next():
-        episode_id = int(row.get("episode_db_id") or 0)
-        item_key = "episode:%s" % episode_id
-        if not episode_id or item_key in in_progress_keys:
-            continue
-        label = "%s · S%02dE%02d · %s" % (
-            row.get("show_title") or "TV show",
-            row.get("season") or 0,
-            row.get("episode") or 0,
-            row.get("title") or "Next episode",
-        )
-        info = {
-            "title": row.get("title") or "Next episode",
-            "tvshowtitle": row.get("show_title", ""),
-            "mediatype": "episode",
-            "season": row.get("season") or 0,
-            "episode": row.get("episode") or 0,
-            "playcount": 0,
-        }
-        art = row.get("art") or {}
-        try:
-            details = _episode_details(episode_id) if episode_id > 0 else {}
-            details = details or {}
-            if details:
-                for key, value in (
-                    ("title", "title"), ("plot", "plot"), ("premiered", "firstaired"),
-                    ("rating", "rating"), ("runtime", "runtime"),
-                ):
-                    if details.get(value) not in (None, "", [], 0):
-                        info[key] = details[value]
-                if not info.get("tvshowtitle"):
-                    info["tvshowtitle"] = details.get("showtitle", "")
-                art = details.get("art") or art
-            if int(row.get("tvshow_db_id") or 0) > 0:
-                show = _show_details(int(row["tvshow_db_id"])) or {}
-                for key in ("year", "genre", "rating", "mpaa", "studio"):
-                    if show.get(key) not in (None, "", [], 0):
-                        info.setdefault(key, show[key])
-                if show.get("art"):
-                    art = show["art"]
-        except Exception as exc:
-            xbmc.log("Kodi Home: Up Next metadata lookup failed: %s" % exc, xbmc.LOGDEBUG)
-        art = dict(art or {})
-        if not art.get("discart"):
-            disc = art.get("thumb") or art.get("poster") or art.get("icon")
-            if disc:
-                art["discart"] = disc
-        target = (
-            str(row.get("file_path") or "")
-            if episode_id < 0 and row.get("file_path")
-            else _umbrella_episode_target(
-                episode_id, int(row.get("tvshow_db_id") or 0)
-            )
-        )
-        context = [("Remove from Up Next", _url(
-            action="remove_up_next", show_id=row.get("tvshow_db_id") or 0
-        ))]
-        _video_item(label, target, info, art=art, context=context)
-
-    _finish()
-
-
-def _umbrella_episode_target(episode_id, show_id):
-    """Build an Umbrella source lookup for an episode selected as Up Next."""
-    library_target = _url(
-        action="play_library", media_type="episode", db_id=episode_id, start=0
-    )
-    if not xbmc.getCondVisibility("System.HasAddon(plugin.video.umbrella)"):
-        return library_target
-    try:
-        episode = _episode_details(int(episode_id)) or {}
-        show = _show_details(int(show_id)) or {}
-        if not episode:
-            return library_target
-        uniqueids = show.get("uniqueid") or {}
-        title = str(episode.get("title") or "")
-        show_title = str(show.get("title") or episode.get("showtitle") or "")
-        metadata = {
-            "title": title,
-            "tvshowtitle": show_title,
-            "year": show.get("year") or 0,
-            "season": episode.get("season") or 0,
-            "episode": episode.get("episode") or 0,
-            "mediatype": "episode",
-            "plot": episode.get("plot") or "",
-            "premiered": episode.get("firstaired") or "",
-            "uniqueid": uniqueids,
-            "art": episode.get("art") or {},
-        }
-        params = {
-            "action": "play_Item",
-            "title": title,
-            "year": str(show.get("year") or ""),
-            "imdb": str(uniqueids.get("imdb") or ""),
-            "tmdb": str(uniqueids.get("tmdb") or ""),
-            "tvdb": str(uniqueids.get("tvdb") or ""),
-            "season": str(episode.get("season") or 0),
-            "episode": str(episode.get("episode") or 0),
-            "tvshowtitle": show_title,
-            "premiered": str(episode.get("firstaired") or ""),
-            "meta": json.dumps(metadata, ensure_ascii=False, separators=(",", ":")),
-        }
-        return "plugin://plugin.video.umbrella/?" + urlencode(params)
-    except Exception as exc:
-        xbmc.log("Kodi Home: couldn't build Umbrella Up Next target: %s" % exc, xbmc.LOGWARNING)
-        return library_target
-
-
-def _up_next():
-    for row in STORE.list_up_next():
-        label = "%s · S%02dE%02d · %s" % (
-            row.get("show_title") or "TV show",
-            row.get("season") or 0,
-            row.get("episode") or 0,
-            row["title"],
-        )
-        info = {
-            "title": row["title"],
-            "tvshowtitle": row.get("show_title", ""),
-            "mediatype": "episode",
-            "season": row.get("season") or 0,
-            "episode": row.get("episode") or 0,
-            "dbid": row["episode_db_id"],
-        }
-        art = dict(row.get("art") or {})
-        if not art.get("discart"):
-            disc = art.get("thumb") or art.get("poster") or art.get("icon")
-            if disc:
-                art["discart"] = disc
-        _video_item(
-            label,
-            str(row.get("file_path") or "")
-            if int(row.get("episode_db_id") or 0) < 0 and row.get("file_path")
-            else _umbrella_episode_target(row["episode_db_id"], row["tvshow_db_id"]),
-            info,
-            art=art,
-            context=[("Remove from Up Next", _url(action="remove_up_next", show_id=row["tvshow_db_id"]))],
-        )
-    _finish()
-
-
-def _history():
-    for row in STORE.list_history():
-        label = (row.get("show_title") + " · " if row.get("show_title") else "") + row["title"]
-        info = {
-            "title": row["title"],
-            "mediatype": row["media_type"],
-            "year": row.get("year") or 0,
-            "playcount": 1,
-        }
-        context = [("Remove from History", _url(action="remove_history", playback_id=row["playback_id"]))]
-        if row.get("kodi_db_id"):
-            target = _url(action="play_library", media_type=row["media_type"], db_id=row["kodi_db_id"], start=0)
-            _video_item(label, target, info, art=row.get("art"), context=context)
-        else:
-            _video_item(label, row.get("file_path", ""), info, art=row.get("art"), context=context)
     _finish()
 
 
@@ -2247,13 +1993,7 @@ def _add_to_watchlist(media_type, db_id):
 
 
 def _remove(action, params):
-    if action == "remove_continue":
-        STORE.remove_continue_watching(params.get("key", ""))
-    elif action == "remove_history":
-        STORE.remove_history_entry(params.get("playback_id", ""))
-    elif action == "remove_up_next":
-        STORE.remove_up_next(int(params.get("show_id", 0)))
-    elif action == "remove_watchlist":
+    if action == "remove_watchlist":
         STORE.remove_watchlist_item(params.get("key", ""))
     _notify("List updated")
     xbmc.executebuiltin("Container.Refresh")
@@ -2346,12 +2086,6 @@ def main():
         _use_youtube_public_feed(params)
     elif action == "app_iplayer_feed":
         _use_bbc_iplayer_popular_feed(params)
-    elif action == "list" and params.get("name") == "continue":
-        _continue_watching()
-    elif action == "list" and params.get("name") == "up_next":
-        _up_next()
-    elif action == "list" and params.get("name") == "history":
-        _history()
     elif action == "watchlist":
         _watchlist()
     elif action == "watchlist_items":
@@ -2375,17 +2109,6 @@ def main():
         else:
             _notify("Invalid Android package name")
         _finish()
-    elif action == "play_progress":
-        key = params.get("key", "")
-        row = next((item for item in STORE.list_continue_watching(500) if item["item_key"] == key), None)
-        if row:
-            start = int(params.get("start", row.get("position_seconds") or 0))
-            if row.get("kodi_db_id"):
-                _play_library(row["media_type"], row["kodi_db_id"], start)
-            else:
-                _play(row["file_path"], {"title": row["title"], "mediatype": row["media_type"]}, start_seconds=start)
-        elif HANDLE >= 0:
-            xbmcplugin.setResolvedUrl(HANDLE, False, xbmcgui.ListItem())
     elif action == "play_library":
         _play_library(params.get("media_type", "episode"), int(params.get("db_id", 0)), int(params.get("start", 0)))
     else:

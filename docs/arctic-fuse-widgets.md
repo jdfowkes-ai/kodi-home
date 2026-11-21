@@ -19,7 +19,7 @@ plugin://plugin.video.kodihome/
 | Watchlist · Released | plugin://plugin.video.kodihome/?action=watchlist_items&bucket=released |
 | Watchlist · Unreleased | plugin://plugin.video.kodihome/?action=watchlist_items&bucket=unreleased |
 
-Playback list entries retain available Kodi artwork such as poster, thumb, landscape, and fanart. Watchlist entries use artwork from their Kodi library metadata. Arctic Fuse can use these as the selected widget and focused-item background sources.
+Watchlist entries use artwork from their Kodi library metadata. Kodi Home no longer provides Continue Watching, Up Next, or History widget endpoints.
 
 These are widget content endpoints. They do not install a preset home layout or change the skin's visual style.
 

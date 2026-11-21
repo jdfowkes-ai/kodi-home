@@ -537,4 +537,3 @@ class LocalStore:
             )
             return cursor.rowcount > 0
 
-    @staticmethod

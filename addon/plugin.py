@@ -2172,8 +2172,13 @@ def _remove_library_entry(media_type, db_id):
         return
     method = "VideoLibrary.RemoveMovie" if media_type == "movie" else "VideoLibrary.RemoveTVShow"
     id_key = "movieid" if media_type == "movie" else "tvshowid"
-    _rpc(method, {id_key: db_id})
-    _notify("Removed from Kodi Library: " + title)
+    try:
+        _rpc(method, {id_key: db_id})
+    except Exception as exc:
+        xbmc.log("Kodi Home: Library removal not supported or failed: %s" % exc, xbmc.LOGERROR)
+        _notify("Library removal unavailable; no files were changed")
+        return
+    _notify("Removed Kodi database entry (shortcut retained): " + title)
 
 
 def _library_entry(media_type, db_id):

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Recovery publication: original Kodi Home 0.5.58 code, packaged as 0.5.65. -->
 <addon id="plugin.video.kodihome"
        name="Kodi Home"
-       version="0.5.65"
+       version="0.5.66"
        provider-name="jdfowkes-ai">
     <requires>
         <import addon="xbmc.python" version="3.0.0" />
@@ -16,10 +15,6 @@
             <item library="context_item.py" args="add_watchlist">
                 <label>Add to Watchlist</label>
                 <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)]</visible>
-            </item>
-            <item library="context_item.py" args="remove_library">
-                <label>Remove from Library</label>
-                <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)] + Integer.IsGreater(ListItem.DBID,0)</visible>
             </item>
         </menu>
     </extension>

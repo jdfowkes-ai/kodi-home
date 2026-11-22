@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# Recovery build trigger only; no overlay behavior changed.
 """Apply the Kodi Home information-panel overlay to an Arctic Fuse 3.4.18 checkout."""
 
 import argparse
@@ -15,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.30"
+CUSTOM_ADDON_VERSION = "0.5.31"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -304,17 +303,17 @@ def apply_keep_changes_focus_overlay(skin_root: Path) -> None:
     dialog_file.write_text(updated, encoding="utf-8")
 
 
-def apply_widget_refresh_overlay(skin_root: Path) -> None:
-    """Refresh and reset every dynamic widget after its row loses focus."""
+def apply_kodi_favourites_refresh_overlay(skin_root: Path) -> None:
+    """Refresh and reset Kodi Favourites after its widget row loses focus."""
     lists_file = skin_root / "1080i/Includes_Lists.xml"
     source = lists_file.read_text(encoding="utf-8")
     marker = '''            <control type="$PARAM[control]" id="$PARAM[id]">
                 <nested />'''
     replacement = marker + '''
-                <!-- Every dynamic widget refreshes once and returns to its
+                <!-- Kodi Favourites widgets refresh once and return to their
                      first item when focus comes back after leaving the row. -->
-                <onunfocus condition="$PARAM[hidden_button_enabled] + String.IsEmpty(Window(Home).Property(KodiHome.WidgetRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
-                <onfocus condition="$PARAM[hidden_button_enabled] + String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_widget_after_focus_return&amp;control=$PARAM[id])</onfocus>'''
+                <onunfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEmpty(Window(Home).Property(KodiHome.FavouritesRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
+                <onfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_kodi_favourites_widget&amp;control=$PARAM[id])</onfocus>'''
     list_core = source.find('    <include name="List_Core">')
     marker_at = source.find(marker, list_core)
     if list_core < 0 or marker_at < 0:
@@ -322,33 +321,6 @@ def apply_widget_refresh_overlay(skin_root: Path) -> None:
     updated = source[:marker_at] + replacement + source[marker_at + len(marker):]
     ET.fromstring(updated)
     lists_file.write_text(updated, encoding="utf-8")
-
-    hubs_file = skin_root / "1080i/Includes_Hubs.xml"
-    hubs = hubs_file.read_text(encoding="utf-8")
-    markers = (
-        (
-            '''                    <ondown>ActivateWindow(1180)</ondown>
-                    <onfocus>SetProperty(TMDbHelper.WidgetContainer,$PARAM[id])</onfocus>''',
-            '''                    <ondown>ActivateWindow(1180)</ondown>
-                    <onunfocus condition="String.IsEmpty(Window(Home).Property(KodiHome.WidgetRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
-                    <onfocus condition="String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_widget_after_focus_return&amp;control=$PARAM[id])</onfocus>
-                    <onfocus>SetProperty(TMDbHelper.WidgetContainer,$PARAM[id])</onfocus>''',
-        ),
-        (
-            '''                <ondown>ActivateWindow(1180)</ondown>
-                <onfocus>SetProperty(TMDbHelper.WidgetContainer,$PARAM[id])</onfocus>''',
-            '''                <ondown>ActivateWindow(1180)</ondown>
-                <onunfocus condition="String.IsEmpty(Window(Home).Property(KodiHome.WidgetRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
-                <onfocus condition="String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_widget_after_focus_return&amp;control=$PARAM[id])</onfocus>
-                <onfocus>SetProperty(TMDbHelper.WidgetContainer,$PARAM[id])</onfocus>''',
-        ),
-    )
-    for old, new in markers:
-        if hubs.count(old) != 1:
-            raise RuntimeError("Could not safely locate an Arctic Fuse alternate widget control")
-        hubs = hubs.replace(old, new, 1)
-    ET.fromstring(hubs)
-    hubs_file.write_text(hubs, encoding="utf-8")
 
 
 def apply_app_spotlight_overlay(skin_root: Path) -> None:
@@ -598,7 +570,7 @@ def apply_overlay(skin_root: Path) -> None:
     apply_app_tile_overlay(skin_root)
     apply_app_widget_tile_overlay(skin_root)
     apply_app_spotlight_overlay(skin_root)
-    apply_widget_refresh_overlay(skin_root)
+    apply_kodi_favourites_refresh_overlay(skin_root)
     apply_keep_changes_focus_overlay(skin_root)
     apply_app_background_overlay(skin_root)
     apply_app_background_slideshow_overlay(skin_root)

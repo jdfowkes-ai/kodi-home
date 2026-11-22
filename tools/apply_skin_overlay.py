@@ -314,9 +314,11 @@ def apply_kodi_favourites_refresh_overlay(skin_root: Path) -> None:
                      first item when focus comes back after leaving the row. -->
                 <onunfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEmpty(Window(Home).Property(KodiHome.FavouritesRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
                 <onfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_kodi_favourites_widget&amp;control=$PARAM[id])</onfocus>'''
-    if source.count(marker) != 1:
+    list_core = source.find('    <include name="List_Core">')
+    marker_at = source.find(marker, list_core)
+    if list_core < 0 or marker_at < 0:
         raise RuntimeError("Could not safely locate the Arctic Fuse core widget control")
-    updated = source.replace(marker, replacement, 1)
+    updated = source[:marker_at] + replacement + source[marker_at + len(marker):]
     ET.fromstring(updated)
     lists_file.write_text(updated, encoding="utf-8")
 

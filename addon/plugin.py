@@ -168,23 +168,18 @@ def _refresh_widget_after_focus_return(params):
     reset_key = "KodiHome.WidgetReset.%s" % control
     if home.getProperty(reset_key) != "true":
         return
-    # App Spotlight owns focus while its live feed is active. A delayed widget
-    # refresh must never pull focus back down to the source row.
-    if home.getProperty("AppSpotlight.Path").strip():
-        home.clearProperty(reset_key)
-        return
 
-    # Clear the one-shot flag before refreshing. Never call SetFocus here:
-    # RunPlugin is asynchronous and the user may already have moved to another
-    # row by the time Container.Update finishes.
+    # Clear the one-shot flag before changing focus. Container.Update rebuilds
+    # the widget and can fire its focus handlers again while Kodi is updating.
     home.clearProperty(reset_key)
     home.setProperty("KodiHome.WidgetRefreshing", "true")
     # Keep the Apps spotlight focus hooks dormant while its source row is
     # being rebuilt, so a normal widget refresh cannot steal focus.
     home.setProperty("AppSpotlight.Refreshing", "true")
     try:
+        xbmc.executebuiltin("SetFocus(%s,0,absolute)" % control, wait=True)
         if not xbmc.getCondVisibility("Control.HasFocus(%s)" % control):
-            return
+            raise RuntimeError("Kodi did not restore widget focus")
         path = xbmc.getInfoLabel("Container(%s).FolderPath" % control).strip()
         if path:
             safe_path = path.replace('"', "")
@@ -192,6 +187,7 @@ def _refresh_widget_after_focus_return(params):
                 'Container.Update("%s",replace)' % safe_path,
                 wait=True,
             )
+        xbmc.executebuiltin("SetFocus(%s,0,absolute)" % control, wait=True)
     except Exception as exc:
         xbmc.log("Kodi Home: widget refresh failed: %s" % exc, xbmc.LOGWARNING)
     finally:
@@ -684,25 +680,6 @@ def _finish(content="videos"):
 
 def _notify(message):
     xbmcgui.Dialog().notification("Kodi Home", message, time=2500)
-
-
-def _watchlist_identity_matches(left, right):
-    """Match IDs first, then use title and year without merging remakes."""
-    if left.get("media_type") != right.get("media_type"):
-        return False
-    left_unique = (left.get("metadata") or {}).get("uniqueid") or {}
-    right_unique = (right.get("metadata") or {}).get("uniqueid") or {}
-    if isinstance(left_unique, dict) and isinstance(right_unique, dict):
-        left_ids = {str(v).strip().casefold() for v in left_unique.values() if str(v or "").strip()}
-        right_ids = {str(v).strip().casefold() for v in right_unique.values() if str(v or "").strip()}
-        if left_ids & right_ids:
-            return True
-    normalize = lambda value: " ".join(re.findall(r"[a-z0-9]+", str(value or "").casefold()))
-    if normalize(left.get("title")) != normalize(right.get("title")):
-        return False
-    left_year = int(left.get("year") or 0)
-    right_year = int(right.get("year") or 0)
-    return not left_year or not right_year or left_year == right_year
 
 
 def _movie_details(movie_id):
@@ -1916,15 +1893,12 @@ def _watchlist_items(bucket):
         }
         context = [("Remove from Watchlist", _url(action="remove_watchlist", key=row["item_key"]))]
         source_path = str(metadata.get("source_path") or "")
-        badge_properties = {"KodiHome.InWatchlist": "true"}
-        if int(row.get("kodi_db_id") or 0) > 0:
-            badge_properties["KodiHome.InLibrary"] = "true"
         if row["media_type"] == "tvshow" and int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="watchlist_show", key=row["item_key"])
-            _video_item(row["title"], target, info, art=metadata.get("art"), context=context, folder=True, properties=badge_properties)
+            _video_item(row["title"], target, info, art=metadata.get("art"), context=context, folder=True)
         elif int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="play_library", media_type="movie", db_id=row["kodi_db_id"], start=0)
-            _video_item(row["title"], target, info, art=metadata.get("art"), context=context, properties=badge_properties)
+            _video_item(row["title"], target, info, art=metadata.get("art"), context=context)
         elif source_path.startswith("plugin://"):
             _video_item(
                 row["title"],
@@ -1933,10 +1907,9 @@ def _watchlist_items(bucket):
                 art=metadata.get("art"),
                 context=context,
                 folder=row["media_type"] == "tvshow",
-                properties=badge_properties,
             )
         else:
-            _video_item(row["title"], "", info, art=metadata.get("art"), context=context, properties=badge_properties)
+            _video_item(row["title"], "", info, art=metadata.get("art"), context=context)
     _finish()
 
 
@@ -2099,7 +2072,6 @@ def _app_library_show(show_id):
 
 
 def _library_items(media_type):
-    watchlist = STORE.list_watchlist("all")
     if media_type == "movie":
         result = _rpc(
             "VideoLibrary.GetMovies",
@@ -2137,20 +2109,7 @@ def _library_items(media_type):
             "plot": entry.get("plot", ""),
             "genre": entry.get("genre", []),
         }
-        candidate = {
-            "media_type": media_type,
-            "title": label,
-            "year": entry.get("year"),
-            "metadata": {"uniqueid": entry.get("uniqueid") or {}},
-        }
-        already_watchlisted = any(_watchlist_identity_matches(candidate, saved) for saved in watchlist)
-        context = [] if already_watchlisted else [("Add to Watchlist", add_target)]
-        properties = {
-            "KodiHome.LibraryItem": "true",
-            "KodiHome.InLibrary": "true",
-        }
-        if already_watchlisted:
-            properties["KodiHome.InWatchlist"] = "true"
+        context = [("Add to Watchlist", add_target)]
         _video_item(
             label,
             target,
@@ -2158,7 +2117,7 @@ def _library_items(media_type):
             art=entry.get("art"),
             context=context,
             folder=True,
-            properties=properties,
+            properties={"KodiHome.LibraryItem": "true"},
         )
     _finish()
 

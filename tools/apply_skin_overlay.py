@@ -303,6 +303,24 @@ def apply_keep_changes_focus_overlay(skin_root: Path) -> None:
     dialog_file.write_text(updated, encoding="utf-8")
 
 
+def apply_kodi_favourites_refresh_overlay(skin_root: Path) -> None:
+    """Refresh and reset Kodi Favourites after its widget row loses focus."""
+    lists_file = skin_root / "1080i/Includes_Lists.xml"
+    source = lists_file.read_text(encoding="utf-8")
+    marker = '''            <control type="$PARAM[control]" id="$PARAM[id]">
+                <nested />'''
+    replacement = marker + '''
+                <!-- Kodi Favourites widgets refresh once and return to their
+                     first item when focus comes back after leaving the row. -->
+                <onunfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEmpty(Window(Home).Property(KodiHome.FavouritesRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
+                <onfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_kodi_favourites_widget&amp;control=$PARAM[id])</onfocus>'''
+    if source.count(marker) != 1:
+        raise RuntimeError("Could not safely locate the Arctic Fuse core widget control")
+    updated = source.replace(marker, replacement, 1)
+    ET.fromstring(updated)
+    lists_file.write_text(updated, encoding="utf-8")
+
+
 def apply_app_spotlight_overlay(skin_root: Path) -> None:
     """Switch the Home hero to the focused app's artwork and live feed."""
     lists_file = skin_root / "1080i/Includes_Lists.xml"
@@ -550,6 +568,7 @@ def apply_overlay(skin_root: Path) -> None:
     apply_app_tile_overlay(skin_root)
     apply_app_widget_tile_overlay(skin_root)
     apply_app_spotlight_overlay(skin_root)
+    apply_kodi_favourites_refresh_overlay(skin_root)
     apply_keep_changes_focus_overlay(skin_root)
     apply_app_background_overlay(skin_root)
     apply_app_background_slideshow_overlay(skin_root)

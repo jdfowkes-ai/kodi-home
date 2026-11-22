@@ -19,7 +19,7 @@ def _call(tag, name, default=None):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] != "add_watchlist":
+    if len(sys.argv) < 2 or sys.argv[1] != "toggle_watchlist":
         return
     selected = getattr(sys, "listitem", None)
     if selected is None:
@@ -54,7 +54,25 @@ def main():
         unique_id = _call(tag, "getUniqueID", "")
         if unique_id:
             metadata["uniqueid"] = unique_id
-        LocalStore(xbmcaddon.Addon("plugin.video.kodihome")).add_watchlist_item({
+        store = LocalStore(xbmcaddon.Addon("plugin.video.kodihome"))
+        # Avoid title-only matches, which can remove an unrelated film or show.
+        existing = None
+        for row in store.list_watchlist("all"):
+            if row["media_type"] != media_type:
+                continue
+            if db_id and int(row.get("kodi_db_id") or 0) == db_id:
+                existing = row
+                break
+            if not db_id and source_path.startswith("plugin://") and (
+                (row.get("metadata") or {}).get("source_path") == source_path
+            ):
+                existing = row
+                break
+        if existing:
+            store.remove_watchlist_item(existing["item_key"])
+            xbmcgui.Dialog().notification("Kodi Home", "Removed from Watchlist: " + title)
+            return
+        store.add_watchlist_item({
             "item_key": item_key,
             "media_type": media_type,
             "kodi_db_id": db_id,

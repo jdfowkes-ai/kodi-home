@@ -134,15 +134,20 @@ def _build_watchlist_index(store):
 
 
 def _identity_matches(identity, index):
+    """Prefer stable provider IDs; do not match different releases by title alone."""
     for media_type in identity["types"]:
-        if any((media_type, provider, value) in index["ids"] for provider, value in identity["ids"]):
+        matching_ids = {
+            (provider, value) for provider, value in identity["ids"]
+            if (media_type, provider, value) in index["ids"]
+        }
+        if matching_ids:
             return True
-        title_key = (media_type, identity["title"])
-        if identity["title"] and (
-            (media_type, identity["title"], identity["year"]) in index["titles"]
-            or (not identity["year"] and (media_type, identity["title"], 0) in index["titles"])
-            or (not identity["year"] and title_key in index["title_any"])
-        ):
+        # When the widget exposes provider IDs but the local record has no
+        # corresponding ID, use only an exact title AND known release year.
+        # Missing years are ambiguous (remakes and identically named shows).
+        if identity["title"] and identity["year"] and (
+            media_type, identity["title"], identity["year"]
+        ) in index["titles"]:
             return True
     return False
 

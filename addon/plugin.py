@@ -2091,6 +2091,11 @@ def _library_items(media_type):
         entries = result.get("tvshows", [])
         id_key = "tvshowid"
 
+    watchlist_by_dbid = {
+        (row["media_type"], int(row.get("kodi_db_id") or 0)): row
+        for row in STORE.list_watchlist("all")
+        if int(row.get("kodi_db_id") or 0) > 0
+    }
     for entry in entries:
         db_id = entry.get(id_key)
         if not db_id:
@@ -2105,12 +2110,7 @@ def _library_items(media_type):
             "plot": entry.get("plot", ""),
             "genre": entry.get("genre", []),
         }
-        existing_watchlist = next(
-            (row for row in STORE.list_watchlist("all")
-             if row["media_type"] == media_type
-             and int(row.get("kodi_db_id") or 0) == int(db_id)),
-            None,
-        )
+        existing_watchlist = watchlist_by_dbid.get((media_type, int(db_id)))
         if existing_watchlist:
             context = [("Remove from Watchlist", _url(
                 action="remove_watchlist", key=existing_watchlist["item_key"]))]

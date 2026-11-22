@@ -14,9 +14,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.25"
+CUSTOM_ADDON_VERSION = "0.5.26"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
+    Path("1080i/Includes_Layouts.xml"),
+    Path("1080i/Includes_Objects.xml"),
     Path("shortcuts/skinvariables-startup.json"),
 )
 BADGE_BUNDLE = PROJECT_ROOT / "skin/assets/uk-certification-badges.json"

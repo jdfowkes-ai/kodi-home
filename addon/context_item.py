@@ -90,9 +90,13 @@ def main():
             "plot": _call(tag, "getPlot", ""),
             "genre": _call(tag, "getGenres", []),
         }
-        unique_id = _call(tag, "getUniqueID", "")
-        if unique_id:
-            metadata["uniqueid"] = unique_id
+        unique_ids = _call(tag, "getUniqueIDs", {})
+        if unique_ids:
+            metadata["uniqueid"] = unique_ids
+        else:
+            unique_id = _call(tag, "getUniqueID", "")
+            if unique_id:
+                metadata["uniqueid"] = unique_id
         LocalStore(xbmcaddon.Addon("plugin.video.kodihome")).add_watchlist_item({
             "item_key": item_key,
             "media_type": media_type,

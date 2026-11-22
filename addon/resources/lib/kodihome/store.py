@@ -53,6 +53,32 @@ def _release_date_value(value):
     return None
 
 
+def _normalized_title(value):
+    return " ".join(re.findall(r"[a-z0-9]+", str(value or "").casefold()))
+
+
+def _unique_ids(metadata):
+    value = (metadata or {}).get("uniqueid") or {}
+    if isinstance(value, dict):
+        return {str(v).strip().casefold() for v in value.values() if str(v or "").strip() and str(v).strip() != "0"}
+    text = str(value or "").strip().casefold()
+    return {text} if text and text != "0" else set()
+
+
+def _same_watchlist_item(left, right):
+    if left.get("media_type") != right.get("media_type"):
+        return False
+    left_ids = _unique_ids(left.get("metadata"))
+    right_ids = _unique_ids(right.get("metadata"))
+    if left_ids & right_ids:
+        return True
+    if _normalized_title(left.get("title")) != _normalized_title(right.get("title")):
+        return False
+    left_year = int(left.get("year") or 0)
+    right_year = int(right.get("year") or 0)
+    return not left_year or not right_year or left_year == right_year
+
+
 class LocalStore:
     """Own the add-on's local playback database."""
 
@@ -252,8 +278,21 @@ class LocalStore:
         media_type = item["media_type"]
         if media_type not in ("movie", "tvshow"):
             raise ValueError("Watchlist media_type must be 'movie' or 'tvshow'")
-        metadata_json = json.dumps(item.get("metadata") or {}, sort_keys=True)
+        item = dict(item)
+        item["metadata"] = item.get("metadata") or {}
         with self._connection() as connection:
+            self._deduplicate_watchlist_rows(connection)
+            for raw_row in connection.execute("SELECT * FROM watchlist_items ORDER BY added_at DESC").fetchall():
+                existing = dict(raw_row)
+                existing["metadata"] = json.loads(existing.pop("metadata_json") or "{}")
+                if _same_watchlist_item(item, existing):
+                    item["item_key"] = existing["item_key"]
+                    item["kodi_db_id"] = item.get("kodi_db_id") or existing.get("kodi_db_id")
+                    merged = dict(existing.get("metadata") or {})
+                    merged.update(item["metadata"])
+                    item["metadata"] = merged
+                    break
+            metadata_json = json.dumps(item["metadata"], sort_keys=True)
             connection.execute(
                 """
                 INSERT INTO watchlist_items (
@@ -279,6 +318,42 @@ class LocalStore:
                     int(time.time()),
                 ),
             )
+
+    def _deduplicate_watchlist_rows(self, connection):
+        """Merge old duplicates while preserving the newest list position."""
+        rows = connection.execute("SELECT * FROM watchlist_items ORDER BY added_at DESC").fetchall()
+        kept = []
+        for raw_row in rows:
+            row = dict(raw_row)
+            row["metadata"] = json.loads(row.pop("metadata_json") or "{}")
+            duplicate = next((saved for saved in kept if _same_watchlist_item(row, saved)), None)
+            if duplicate is None:
+                kept.append(row)
+                continue
+            merged = dict(row.get("metadata") or {})
+            merged.update(duplicate.get("metadata") or {})
+            connection.execute(
+                """
+                UPDATE watchlist_items
+                SET kodi_db_id=COALESCE(kodi_db_id, ?), year=COALESCE(year, ?),
+                    release_date=COALESCE(release_date, ?), metadata_json=?
+                WHERE item_key=?
+                """,
+                (row.get("kodi_db_id"), row.get("year"), row.get("release_date"),
+                 json.dumps(merged, sort_keys=True), duplicate["item_key"]),
+            )
+            connection.execute("DELETE FROM watchlist_items WHERE item_key=?", (row["item_key"],))
+            duplicate["metadata"] = merged
+            duplicate["kodi_db_id"] = duplicate.get("kodi_db_id") or row.get("kodi_db_id")
+            duplicate["year"] = duplicate.get("year") or row.get("year")
+            duplicate["release_date"] = duplicate.get("release_date") or row.get("release_date")
+
+    def deduplicate_watchlist(self):
+        with self._connection() as connection:
+            before = connection.execute("SELECT COUNT(*) FROM watchlist_items").fetchone()[0]
+            self._deduplicate_watchlist_rows(connection)
+            after = connection.execute("SELECT COUNT(*) FROM watchlist_items").fetchone()[0]
+        return before - after
 
     def refresh_watchlist_metadata(self, item):
         """Refresh library metadata while preserving the original watchlist date."""
@@ -323,6 +398,7 @@ class LocalStore:
             today_value = date.today()
         query = "SELECT * FROM watchlist_items ORDER BY added_at DESC"
         with self._connection() as connection:
+            self._deduplicate_watchlist_rows(connection)
             rows = connection.execute(query).fetchall()
         result = []
         for row in rows:

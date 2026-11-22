@@ -1888,6 +1888,22 @@ def _watchlist_items(bucket):
             "studio": metadata.get("studio") or [],
         }
         context = [("Remove from Watchlist", _url(action="remove_watchlist", key=row["item_key"]))]
+        # A Watchlist item may also belong to Kodi Library. Keep both actions
+        # independent and never offer Library removal without a live DB match.
+        linked_id = int(row.get("kodi_db_id") or 0)
+        if linked_id > 0:
+            try:
+                library_details = (
+                    _movie_details(linked_id) if row["media_type"] == "movie"
+                    else _show_details(linked_id)
+                )
+            except Exception:
+                library_details = None
+            if library_details:
+                context.append(("Remove from Library", _url(
+                    action="remove_library",
+                    media_type=row["media_type"], db_id=linked_id,
+                )))
         source_path = str(metadata.get("source_path") or "")
         if row["media_type"] == "tvshow" and int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="watchlist_show", key=row["item_key"])

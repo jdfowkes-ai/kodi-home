@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Recovery build: original Kodi Home 0.5.58 code, no functional changes. -->
+<!-- Recovery publication: original Kodi Home 0.5.58 code, packaged as 0.5.65. -->
 <addon id="plugin.video.kodihome"
        name="Kodi Home"
        version="0.5.65"

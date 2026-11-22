@@ -1,6 +1,7 @@
 """Kodi global context-menu actions for Kodi Home lists."""
 
 import hashlib
+import json
 import sys
 
 import xbmc
@@ -18,14 +19,41 @@ def _call(tag, name, default=None):
         return default
 
 
+def _remove_library_entry(selected):
+    """Remove Kodi's database entry; never delete unverified .strm files."""
+    tag = selected.getVideoInfoTag()
+    media_type = str(_call(tag, "getMediaType", "")).lower()
+    db_id = int(_call(tag, "getDbId", 0) or 0)
+    if media_type not in ("movie", "tvshow") or db_id <= 0:
+        xbmcgui.Dialog().notification("Kodi Home", "No matching Kodi library entry")
+        return
+    title = str(_call(tag, "getTitle", "") or selected.getLabel() or "this title")
+    if not xbmcgui.Dialog().yesno("Remove from Kodi Library",
+        'Remove "%s" from Kodi Library? The .strm shortcut will not be deleted.' % title):
+        return
+    method = "VideoLibrary.RemoveMovie" if media_type == "movie" else "VideoLibrary.RemoveTVShow"
+    id_key = "movieid" if media_type == "movie" else "tvshowid"
+    request = {"jsonrpc": "2.0", "id": 1, "method": method, "params": {id_key: db_id}}
+    response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+    if response.get("error"):
+        raise RuntimeError(response["error"])
+    xbmcgui.Dialog().notification("Kodi Home", "Removed library entry: " + title)
+
+
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] != "toggle_watchlist":
+    if len(sys.argv) < 2:
+        return
+    action = sys.argv[1]
+    if action not in ("toggle_watchlist", "remove_library"):
         return
     selected = getattr(sys, "listitem", None)
     if selected is None:
         xbmcgui.Dialog().notification("Kodi Home", "Selected item details were unavailable")
         return
     try:
+        if action == "remove_library":
+            _remove_library_entry(selected)
+            return
         tag = selected.getVideoInfoTag()
         media_type = str(_call(tag, "getMediaType", "")).lower()
         if media_type not in ("movie", "tvshow"):
@@ -84,7 +112,7 @@ def main():
         xbmcgui.Dialog().notification("Kodi Home", "Added to Watchlist: " + title)
     except Exception as exc:
         xbmc.log("Kodi Home context item failed: %s" % exc, xbmc.LOGERROR)
-        xbmcgui.Dialog().notification("Kodi Home", "Could not add this item")
+        xbmcgui.Dialog().notification("Kodi Home", "Could not update this item")
 
 
 if __name__ == "__main__":

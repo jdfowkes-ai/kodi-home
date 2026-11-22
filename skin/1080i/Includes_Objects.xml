@@ -1167,7 +1167,7 @@
                         <width>20</width>
                         <height>20</height>
                         <aspectratio>keep</aspectratio>
-                        <texture>flags/color/trakt/watchlist.png</texture>
+                        <texture>indicator/checkmark.png</texture>
                     </control>
                 </control>
             </control>

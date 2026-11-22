@@ -44,7 +44,7 @@ def main():
     if len(sys.argv) < 2:
         return
     action = sys.argv[1]
-    if action not in ("add_watchlist", "remove_watchlist", "remove_library"):
+    if action not in ("manage_watchlist", "add_watchlist", "remove_watchlist", "remove_library"):
         return
     selected = getattr(sys, "listitem", None)
     if selected is None:
@@ -108,6 +108,11 @@ def main():
             if source_path.startswith("plugin://") and row_meta.get("source_path") == source_path:
                 existing = row
                 break
+        if action == "manage_watchlist":
+            action = "remove_watchlist" if existing else "add_watchlist"
+            verb = "Remove from Watchlist" if existing else "Add to Watchlist"
+            if not xbmcgui.Dialog().yesno("Kodi Home", '%s: "%s"?' % (verb, title)):
+                return
         if action == "remove_watchlist":
             if not existing:
                 xbmcgui.Dialog().notification("Kodi Home", "Not in Watchlist: " + title)

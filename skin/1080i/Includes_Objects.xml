@@ -1129,27 +1129,46 @@
     <include name="Object_KodiHomeListBadges">
         <param name="listitem">ListItem</param>
         <definition>
+            <!-- Compact status icons at the top-left of every poster layout. -->
             <control type="group">
                 <top>10</top>
-                <right>10</right>
-                <width>64</width>
+                <left>10</left>
+                <width>68</width>
                 <height>30</height>
-                <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InWatchlist),true) | String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true) | Integer.IsGreater($PARAM[listitem].DBID,0)</visible>
+                <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true) | String.IsEqual($PARAM[listitem].Property(KodiHome.InWatchlist),true)</visible>
                 <control type="group">
                     <left>0</left>
                     <width>30</width>
                     <height>30</height>
-                    <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true) | Integer.IsGreater($PARAM[listitem].DBID,0)</visible>
-                    <control type="image"><texture colordiffuse="ee2878c8">indicator/circle-colordiffuse.png</texture></control>
-                    <control type="label"><align>center</align><aligny>center</aligny><font>font_mini_bold</font><textcolor>FFFFFFFF</textcolor><label>L</label></control>
+                    <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true)</visible>
+                    <control type="image">
+                        <texture colordiffuse="dd202832">indicator/circle-colordiffuse.png</texture>
+                    </control>
+                    <control type="image">
+                        <left>5</left>
+                        <top>5</top>
+                        <width>20</width>
+                        <height>20</height>
+                        <aspectratio>keep</aspectratio>
+                        <texture>indicator/library.png</texture>
+                    </control>
                 </control>
                 <control type="group">
-                    <right>0</right>
+                    <left>38</left>
                     <width>30</width>
                     <height>30</height>
                     <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InWatchlist),true)</visible>
-                    <control type="image"><texture colordiffuse="eef0aa00">indicator/circle-colordiffuse.png</texture></control>
-                    <control type="label"><align>center</align><aligny>center</aligny><font>font_mini_bold</font><textcolor>FF111111</textcolor><label>W</label></control>
+                    <control type="image">
+                        <texture colordiffuse="dd202832">indicator/circle-colordiffuse.png</texture>
+                    </control>
+                    <control type="image">
+                        <left>5</left>
+                        <top>5</top>
+                        <width>20</width>
+                        <height>20</height>
+                        <aspectratio>keep</aspectratio>
+                        <texture>flags/color/trakt/watchlist.png</texture>
+                    </control>
                 </control>
             </control>
         </definition>

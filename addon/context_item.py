@@ -79,21 +79,33 @@ def main():
             "plot": _call(tag, "getPlot", ""),
             "genre": _call(tag, "getGenres", []),
         }
-        unique_id = _call(tag, "getUniqueID", "")
-        if unique_id:
-            metadata["uniqueid"] = unique_id
+        unique_ids = _call(tag, "getUniqueIDs", {})
+        if isinstance(unique_ids, dict) and unique_ids:
+            metadata["uniqueid"] = unique_ids
+        else:
+            unique_id = _call(tag, "getUniqueID", "")
+            if unique_id:
+                metadata["uniqueid"] = unique_id
         store = LocalStore(xbmcaddon.Addon("plugin.video.kodihome"))
-        # Avoid title-only matches, which can remove an unrelated film or show.
+        # Match exact IDs first. Never infer identity from title alone.
         existing = None
         for row in store.list_watchlist("all"):
             if row["media_type"] != media_type:
                 continue
+            row_meta = row.get("metadata") or {}
             if db_id and int(row.get("kodi_db_id") or 0) == db_id:
                 existing = row
                 break
-            if not db_id and source_path.startswith("plugin://") and (
-                (row.get("metadata") or {}).get("source_path") == source_path
-            ):
+            row_ids = row_meta.get("uniqueid")
+            if isinstance(unique_ids, dict) and isinstance(row_ids, dict):
+                if any(
+                    str(unique_ids.get(provider) or "") == str(row_ids.get(provider) or "")
+                    for provider in ("tmdb", "imdb", "tvdb")
+                    if unique_ids.get(provider) and row_ids.get(provider)
+                ):
+                    existing = row
+                    break
+            if source_path.startswith("plugin://") and row_meta.get("source_path") == source_path:
                 existing = row
                 break
         if action == "remove_watchlist":

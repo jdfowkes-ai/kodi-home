@@ -168,18 +168,23 @@ def _refresh_widget_after_focus_return(params):
     reset_key = "KodiHome.WidgetReset.%s" % control
     if home.getProperty(reset_key) != "true":
         return
+    # App Spotlight owns focus while its live feed is active. A delayed widget
+    # refresh must never pull focus back down to the source row.
+    if home.getProperty("AppSpotlight.Path").strip():
+        home.clearProperty(reset_key)
+        return
 
-    # Clear the one-shot flag before changing focus. Container.Update rebuilds
-    # the widget and can fire its focus handlers again while Kodi is updating.
+    # Clear the one-shot flag before refreshing. Never call SetFocus here:
+    # RunPlugin is asynchronous and the user may already have moved to another
+    # row by the time Container.Update finishes.
     home.clearProperty(reset_key)
     home.setProperty("KodiHome.WidgetRefreshing", "true")
     # Keep the Apps spotlight focus hooks dormant while its source row is
     # being rebuilt, so a normal widget refresh cannot steal focus.
     home.setProperty("AppSpotlight.Refreshing", "true")
     try:
-        xbmc.executebuiltin("SetFocus(%s,0,absolute)" % control, wait=True)
         if not xbmc.getCondVisibility("Control.HasFocus(%s)" % control):
-            raise RuntimeError("Kodi did not restore widget focus")
+            return
         path = xbmc.getInfoLabel("Container(%s).FolderPath" % control).strip()
         if path:
             safe_path = path.replace('"', "")
@@ -187,7 +192,6 @@ def _refresh_widget_after_focus_return(params):
                 'Container.Update("%s",replace)' % safe_path,
                 wait=True,
             )
-        xbmc.executebuiltin("SetFocus(%s,0,absolute)" % control, wait=True)
     except Exception as exc:
         xbmc.log("Kodi Home: widget refresh failed: %s" % exc, xbmc.LOGWARNING)
     finally:

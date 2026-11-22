@@ -1127,18 +1127,19 @@
     </include>
 
     <include name="Object_KodiHomeListBadges">
+        <param name="listitem">ListItem</param>
         <definition>
             <control type="group">
                 <top>14</top>
                 <right>14</right>
                 <width>102</width>
                 <height>48</height>
-                <visible>String.IsEqual(ListItem.Property(KodiHome.InWatchlist),true) | String.IsEqual(ListItem.Property(KodiHome.InLibrary),true) | Integer.IsGreater(ListItem.DBID,0)</visible>
+                <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InWatchlist),true) | String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true) | Integer.IsGreater($PARAM[listitem].DBID,0)</visible>
                 <control type="group">
                     <left>0</left>
                     <width>48</width>
                     <height>48</height>
-                    <visible>String.IsEqual(ListItem.Property(KodiHome.InLibrary),true) | Integer.IsGreater(ListItem.DBID,0)</visible>
+                    <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true) | Integer.IsGreater($PARAM[listitem].DBID,0)</visible>
                     <control type="image"><texture colordiffuse="dd222222">indicator/circle-colordiffuse.png</texture></control>
                     <control type="image"><bordersize>11</bordersize><texture>indicator/library.png</texture><aspectratio>keep</aspectratio></control>
                 </control>
@@ -1146,7 +1147,7 @@
                     <right>0</right>
                     <width>48</width>
                     <height>48</height>
-                    <visible>String.IsEqual(ListItem.Property(KodiHome.InWatchlist),true)</visible>
+                    <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InWatchlist),true)</visible>
                     <control type="image"><texture colordiffuse="dd222222">indicator/circle-colordiffuse.png</texture></control>
                     <control type="image"><bordersize>10</bordersize><texture>flags/color/trakt/watchlist.png</texture><aspectratio>keep</aspectratio></control>
                 </control>

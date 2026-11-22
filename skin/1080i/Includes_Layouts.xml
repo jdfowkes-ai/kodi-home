@@ -2116,7 +2116,6 @@
                 </control>
 
                 <control type="group">
-                    <include content="Object_KodiHomeListBadges" condition="$PARAM[indicator]" />
                     <include content="Object_ContentBanner" condition="$PARAM[indicator]">
                         <param name="listitem">$PARAM[listitem]</param>
                     </include>
@@ -2395,6 +2394,10 @@
                         <param name="listitem">$PARAM[listitem]</param>
                         <param name="indicator">$PARAM[indicator]</param>
                         <param name="focusbounce">true</param>
+                    </include>
+                    <!-- Keep local list badges above the selected-poster layer. -->
+                    <include content="Object_KodiHomeListBadges" condition="$PARAM[indicator]">
+                        <param name="listitem">$PARAM[listitem]</param>
                     </include>
                 </control>
 

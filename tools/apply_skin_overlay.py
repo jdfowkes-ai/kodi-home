@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.26"
+CUSTOM_ADDON_VERSION = "0.5.27"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("1080i/Includes_Layouts.xml"),
@@ -314,8 +314,8 @@ def apply_widget_refresh_overlay(skin_root: Path) -> None:
     replacement = marker + '''
                 <!-- Every dynamic widget refreshes once and returns to its
                      first item when focus comes back after leaving the row. -->
-                <onunfocus condition="$PARAM[hidden_button_enabled] + String.IsEmpty(Window(Home).Property(KodiHome.WidgetRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
-                <onfocus condition="$PARAM[hidden_button_enabled] + String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_widget_after_focus_return&amp;control=$PARAM[id])</onfocus>'''
+                <onunfocus condition="$PARAM[hidden_button_enabled] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEmpty(Window(Home).Property(KodiHome.WidgetRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>
+                <onfocus condition="$PARAM[hidden_button_enabled] + !String.IsEqual($PARAM[container]ListItem.Property(KodiHome.AppTile),true) + String.IsEqual(Window(Home).Property(KodiHome.WidgetReset.$PARAM[id]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_widget_after_focus_return&amp;control=$PARAM[id])</onfocus>'''
     list_core = source.find('    <include name="List_Core">')
     marker_at = source.find(marker, list_core)
     if list_core < 0 or marker_at < 0:

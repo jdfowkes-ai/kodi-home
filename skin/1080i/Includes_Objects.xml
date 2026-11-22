@@ -1130,26 +1130,28 @@
         <param name="listitem">ListItem</param>
         <definition>
             <control type="group">
-                <top>14</top>
-                <right>14</right>
-                <width>102</width>
-                <height>48</height>
+                <top>12</top>
+                <right>12</right>
+                <width>174</width>
+                <height>38</height>
                 <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InWatchlist),true) | String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true) | Integer.IsGreater($PARAM[listitem].DBID,0)</visible>
                 <control type="group">
                     <left>0</left>
-                    <width>48</width>
-                    <height>48</height>
+                    <width>76</width>
+                    <height>38</height>
                     <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InLibrary),true) | Integer.IsGreater($PARAM[listitem].DBID,0)</visible>
-                    <control type="image"><texture colordiffuse="dd222222">indicator/circle-colordiffuse.png</texture></control>
-                    <control type="image"><bordersize>11</bordersize><texture>indicator/library.png</texture><aspectratio>keep</aspectratio></control>
+                    <control type="image"><texture colordiffuse="ee2878c8" border="10">common/box.png</texture></control>
+                    <control type="image"><left>7</left><width>24</width><bordersize>3</bordersize><texture>indicator/library.png</texture><aspectratio>keep</aspectratio></control>
+                    <control type="label"><left>31</left><right>5</right><align>center</align><aligny>center</aligny><font>font_mini_bold</font><textcolor>FFFFFFFF</textcolor><label>LIB</label></control>
                 </control>
                 <control type="group">
                     <right>0</right>
-                    <width>48</width>
-                    <height>48</height>
+                    <width>92</width>
+                    <height>38</height>
                     <visible>String.IsEqual($PARAM[listitem].Property(KodiHome.InWatchlist),true)</visible>
-                    <control type="image"><texture colordiffuse="dd222222">indicator/circle-colordiffuse.png</texture></control>
-                    <control type="image"><bordersize>10</bordersize><texture>flags/color/trakt/watchlist.png</texture><aspectratio>keep</aspectratio></control>
+                    <control type="image"><texture colordiffuse="eef0aa00" border="10">common/box.png</texture></control>
+                    <control type="image"><left>7</left><width>24</width><bordersize>3</bordersize><texture>flags/color/trakt/watchlist.png</texture><aspectratio>keep</aspectratio></control>
+                    <control type="label"><left>29</left><right>4</right><align>center</align><aligny>center</aligny><font>font_mini_bold</font><textcolor>FF111111</textcolor><label>WATCH</label></control>
                 </control>
             </control>
         </definition>

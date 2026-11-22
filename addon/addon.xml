@@ -13,12 +13,8 @@
     <extension point="xbmc.service" library="service.py" start="startup" />
     <extension point="kodi.context.item">
         <menu id="kodi.core.main">
-            <item library="context_item.py" args="add_watchlist">
-                <label>Add to Watchlist</label>
-                <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)]</visible>
-            </item>
-            <item library="context_item.py" args="remove_watchlist">
-                <label>Remove from Watchlist</label>
+            <item library="context_item.py" args="manage_watchlist">
+                <label>Manage Watchlist</label>
                 <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)]</visible>
             </item>
             <item library="context_item.py" args="remove_library">

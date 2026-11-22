@@ -18,7 +18,7 @@ LOG_PREFIX = "Kodi Home"
 APP_ART_CACHE_SECONDS = 6 * 60 * 60
 STATUS_REFRESH_SECONDS = 5
 IDENTITY_REFRESH_SECONDS = 60
-HOME_WIDGET_CONTROL_IDS = range(300, 600)
+HOME_WIDGET_CONTROL_IDS = range(300, 610)
 
 
 def _call(target, method, default=None):
@@ -152,7 +152,18 @@ def _decorate_home_widgets(library, watchlist):
     if not xbmc.getCondVisibility("Window.IsActive(Home)"):
         return
     window = xbmcgui.Window(10000)
-    for control_id in HOME_WIDGET_CONTROL_IDS:
+    control_ids = set(HOME_WIDGET_CONTROL_IDS)
+    # Arctic Fuse registers the current Home rows in container 601. Each row
+    # exposes its real dynamic widget control (commonly 5xxx) as widget_id.
+    try:
+        registry = window.getControl(601)
+        for position in range(min(int(registry.size()), 500)):
+            widget_id = str(registry.getListItem(position).getProperty("widget_id") or "").strip()
+            if widget_id.isdigit():
+                control_ids.add(int(widget_id))
+    except Exception:
+        pass
+    for control_id in control_ids:
         try:
             control = window.getControl(control_id)
             size = min(int(control.size()), 500)

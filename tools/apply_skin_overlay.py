@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Recovery build trigger only; no overlay behavior changed.
 """Apply the Kodi Home information-panel overlay to an Arctic Fuse 3.4.18 checkout."""
 
 import argparse

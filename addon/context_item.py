@@ -36,8 +36,10 @@ def _remove_library_entry(selected):
     request = {"jsonrpc": "2.0", "id": 1, "method": method, "params": {id_key: db_id}}
     response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
     if response.get("error"):
-        raise RuntimeError(response["error"])
-    xbmcgui.Dialog().notification("Kodi Home", "Removed library entry: " + title)
+        xbmc.log("Kodi Home: Library removal failed: %s" % response["error"], xbmc.LOGERROR)
+        xbmcgui.Dialog().notification("Kodi Home", "Library removal unavailable; no files were changed")
+        return
+    xbmcgui.Dialog().notification("Kodi Home", "Removed database entry (shortcut retained): " + title)
 
 
 def main():

@@ -1912,10 +1912,12 @@ def _watchlist_items(bucket):
                 media_type=row["media_type"], db_id=linked_id,
             )))
         source_path = str(metadata.get("source_path") or "")
-        if row["media_type"] == "tvshow" and int(row.get("kodi_db_id") or 0) > 0:
+        # Stale Kodi IDs must not send Watchlist clicks to deleted Library records.
+        linked_is_live = linked_id in live_library_ids.get(row["media_type"], set())
+        if row["media_type"] == "tvshow" and linked_is_live:
             target = _url(action="watchlist_show", key=row["item_key"])
             _video_item(row["title"], target, info, art=metadata.get("art"), context=context, folder=True)
-        elif int(row.get("kodi_db_id") or 0) > 0:
+        elif row["media_type"] == "movie" and linked_is_live:
             target = _url(action="play_library", media_type="movie", db_id=row["kodi_db_id"], start=0)
             _video_item(row["title"], target, info, art=metadata.get("art"), context=context)
         elif source_path.startswith("plugin://"):

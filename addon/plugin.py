@@ -2105,7 +2105,19 @@ def _library_items(media_type):
             "plot": entry.get("plot", ""),
             "genre": entry.get("genre", []),
         }
-        context = [("Add to Watchlist", add_target)]
+        existing_watchlist = next(
+            (row for row in STORE.list_watchlist("all")
+             if row["media_type"] == media_type
+             and int(row.get("kodi_db_id") or 0) == int(db_id)),
+            None,
+        )
+        if existing_watchlist:
+            context = [("Remove from Watchlist", _url(
+                action="remove_watchlist", key=existing_watchlist["item_key"]))]
+        else:
+            context = [("Add to Watchlist", add_target)]
+        context.append(("Remove from Library", _url(
+            action="remove_library", media_type=media_type, db_id=db_id)))
         _video_item(
             label,
             target,
@@ -2116,6 +2128,27 @@ def _library_items(media_type):
             properties={"KodiHome.LibraryItem": "true"},
         )
     _finish()
+
+
+def _remove_library_entry(media_type, db_id):
+    """Remove the Kodi database record, never an unmanaged .strm shortcut."""
+    if media_type not in ("movie", "tvshow") or db_id <= 0:
+        _notify("Invalid library item")
+        return
+    details = _movie_details(db_id) if media_type == "movie" else _show_details(db_id)
+    if not details:
+        _notify("Item is no longer in Kodi Library")
+        return
+    title = details.get("title") or "this title"
+    if not xbmcgui.Dialog().yesno(
+        "Remove from Library",
+        'Remove "%s" from Kodi Library? Its .strm file will remain.' % title,
+    ):
+        return
+    method = "VideoLibrary.RemoveMovie" if media_type == "movie" else "VideoLibrary.RemoveTVShow"
+    id_key = "movieid" if media_type == "movie" else "tvshowid"
+    _rpc(method, {id_key: db_id})
+    _notify("Removed from Kodi Library: " + title)
 
 
 def _library_entry(media_type, db_id):
@@ -2274,6 +2307,8 @@ def main():
         _add_library()
     elif action == "library_items":
         _library_items(params.get("media_type", "movie"))
+    elif action == "remove_library":
+        _remove_library_entry(params.get("media_type", ""), int(params.get("db_id", 0)))
     elif action == "library_entry":
         _library_entry(params.get("media_type", "movie"), int(params.get("db_id", 0)))
     elif action == "add_watchlist":

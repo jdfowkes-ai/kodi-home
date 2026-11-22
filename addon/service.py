@@ -140,7 +140,7 @@ def _identity_matches(identity, index):
         title_key = (media_type, identity["title"])
         if identity["title"] and (
             (media_type, identity["title"], identity["year"]) in index["titles"]
-            or (media_type, identity["title"], 0) in index["titles"]
+            or (not identity["year"] and (media_type, identity["title"], 0) in index["titles"])
             or (not identity["year"] and title_key in index["title_any"])
         ):
             return True
@@ -173,10 +173,12 @@ def _decorate_home_widgets(library, watchlist):
             try:
                 item = control.getListItem(position)
                 identity = _item_identity(item)
-                in_library = identity["db_id"] > 0 or _identity_matches(identity, library)
+                in_library = _identity_matches(identity, library)
                 in_watchlist = _identity_matches(identity, watchlist)
-                item.setProperty("KodiHome.InLibrary", "true" if in_library else "false")
-                item.setProperty("KodiHome.InWatchlist", "true" if in_watchlist else "false")
+                for key, present in (("KodiHome.InLibrary", in_library), ("KodiHome.InWatchlist", in_watchlist)):
+                    desired = "true" if present else "false"
+                    if item.getProperty(key) != desired:
+                        item.setProperty(key, desired)
             except Exception:
                 continue
 
@@ -239,11 +241,12 @@ def main():
     watchlist = _build_watchlist_index(store)
     next_identity_refresh = time.monotonic() + IDENTITY_REFRESH_SECONDS
     while not monitor.abortRequested():
-        _decorate_home_widgets(library, watchlist)
+        # Refresh membership before decorating so removals do not retain old flags.
         watchlist = _build_watchlist_index(store)
         if time.monotonic() >= next_identity_refresh:
             library = _build_library_index()
             next_identity_refresh = time.monotonic() + IDENTITY_REFRESH_SECONDS
+        _decorate_home_widgets(library, watchlist)
         if monitor.waitForAbort(STATUS_REFRESH_SECONDS):
             break
 

@@ -1,6 +1,7 @@
 """Kodi global context-menu actions for Kodi Home lists."""
 
 import hashlib
+import json
 import sys
 
 import xbmc
@@ -18,14 +19,52 @@ def _call(tag, name, default=None):
         return default
 
 
-def main():
-    if len(sys.argv) < 2 or sys.argv[1] != "add_watchlist":
+def _remove_from_library(selected):
+    tag = selected.getVideoInfoTag()
+    media_type = str(_call(tag, "getMediaType", "")).lower()
+    db_id = int(_call(tag, "getDbId", 0) or 0)
+    title = str(_call(tag, "getTitle", "") or selected.getLabel() or "this item").strip()
+    if media_type not in ("movie", "tvshow") or db_id <= 0:
+        xbmcgui.Dialog().notification(
+            "Kodi Home",
+            "This is not a removable movie or TV show library entry",
+        )
         return
+    library_name = "movie" if media_type == "movie" else "TV shows"
+    if not xbmcgui.Dialog().yesno(
+        "Remove from Library",
+        'Remove "%s" from your Kodi %s library?' % (title, library_name),
+    ):
+        return
+    method = "VideoLibrary.RemoveMovie" if media_type == "movie" else "VideoLibrary.RemoveTVShow"
+    id_key = "movieid" if media_type == "movie" else "tvshowid"
+    request = {
+        "jsonrpc": "2.0",
+        "id": "kodihome-remove-library",
+        "method": method,
+        "params": {id_key: db_id},
+    }
+    response = json.loads(xbmc.executeJSONRPC(json.dumps(request)))
+    if response.get("error"):
+        raise RuntimeError(response["error"])
+    xbmcgui.Dialog().notification("Kodi Home", "Removed from Library: " + title)
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def main():
+    if len(sys.argv) < 2:
+        return
+    action = sys.argv[1]
     selected = getattr(sys, "listitem", None)
     if selected is None:
         xbmcgui.Dialog().notification("Kodi Home", "Selected item details were unavailable")
         return
     try:
+        if action == "remove_library":
+            _remove_from_library(selected)
+            return
+        if action != "add_watchlist":
+            return
         tag = selected.getVideoInfoTag()
         media_type = str(_call(tag, "getMediaType", "")).lower()
         if media_type not in ("movie", "tvshow"):
@@ -66,7 +105,8 @@ def main():
         xbmcgui.Dialog().notification("Kodi Home", "Added to Watchlist: " + title)
     except Exception as exc:
         xbmc.log("Kodi Home context item failed: %s" % exc, xbmc.LOGERROR)
-        xbmcgui.Dialog().notification("Kodi Home", "Could not add this item")
+        message = "Could not remove this item" if action == "remove_library" else "Could not add this item"
+        xbmcgui.Dialog().notification("Kodi Home", message)
 
 
 if __name__ == "__main__":

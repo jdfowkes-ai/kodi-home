@@ -1873,7 +1873,22 @@ def _refresh_watchlist_metadata():
 
 def _watchlist_items(bucket):
     _refresh_watchlist_metadata()
-    for row in STORE.list_watchlist(bucket=bucket):
+    rows = STORE.list_watchlist(bucket=bucket)
+    # One library lookup per media type, not one JSON-RPC request per poster.
+    live_library_ids = {"movie": set(), "tvshow": set()}
+    for media_type, method, result_key, id_key in (
+        ("movie", "VideoLibrary.GetMovies", "movies", "movieid"),
+        ("tvshow", "VideoLibrary.GetTVShows", "tvshows", "tvshowid"),
+    ):
+        if any(row["media_type"] == media_type and int(row.get("kodi_db_id") or 0) > 0 for row in rows):
+            try:
+                result = _rpc(method, {"properties": [], "limits": {"start": 0, "end": 10000}})
+                live_library_ids[media_type] = {
+                    int(item[id_key]) for item in result.get(result_key, []) if item.get(id_key)
+                }
+            except Exception as exc:
+                xbmc.log("Kodi Home: library membership lookup failed: %s" % exc, xbmc.LOGWARNING)
+    for row in rows:
         metadata = row.get("metadata") or {}
         info = {
             "title": row["title"],
@@ -1891,19 +1906,11 @@ def _watchlist_items(bucket):
         # A Watchlist item may also belong to Kodi Library. Keep both actions
         # independent and never offer Library removal without a live DB match.
         linked_id = int(row.get("kodi_db_id") or 0)
-        if linked_id > 0:
-            try:
-                library_details = (
-                    _movie_details(linked_id) if row["media_type"] == "movie"
-                    else _show_details(linked_id)
-                )
-            except Exception:
-                library_details = None
-            if library_details:
-                context.append(("Remove from Library", _url(
-                    action="remove_library",
-                    media_type=row["media_type"], db_id=linked_id,
-                )))
+        if linked_id in live_library_ids.get(row["media_type"], set()):
+            context.append(("Remove from Library", _url(
+                action="remove_library",
+                media_type=row["media_type"], db_id=linked_id,
+            )))
         source_path = str(metadata.get("source_path") or "")
         if row["media_type"] == "tvshow" and int(row.get("kodi_db_id") or 0) > 0:
             target = _url(action="watchlist_show", key=row["item_key"])

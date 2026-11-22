@@ -44,7 +44,7 @@ def main():
     if len(sys.argv) < 2:
         return
     action = sys.argv[1]
-    if action not in ("toggle_watchlist", "remove_library"):
+    if action not in ("add_watchlist", "remove_watchlist", "remove_library"):
         return
     selected = getattr(sys, "listitem", None)
     if selected is None:
@@ -96,9 +96,15 @@ def main():
             ):
                 existing = row
                 break
-        if existing:
+        if action == "remove_watchlist":
+            if not existing:
+                xbmcgui.Dialog().notification("Kodi Home", "Not in Watchlist: " + title)
+                return
             store.remove_watchlist_item(existing["item_key"])
             xbmcgui.Dialog().notification("Kodi Home", "Removed from Watchlist: " + title)
+            return
+        if existing:
+            xbmcgui.Dialog().notification("Kodi Home", "Already in Watchlist: " + title)
             return
         store.add_watchlist_item({
             "item_key": item_key,

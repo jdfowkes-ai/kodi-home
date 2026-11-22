@@ -146,9 +146,6 @@ def _kodi_favourites():
         if thumbnail:
             item.setArt({"thumb": thumbnail, "icon": thumbnail, "poster": thumbnail})
         item.setProperty("KodiHome.KodiFavouriteType", str(row.get("type", "")))
-        # Arctic Fuse uses this marker to refresh the widget and return it to
-        # its first item only after focus has left the row and later returns.
-        item.setProperty("KodiHome.ResetOnLeave", "true")
         item.addContextMenuItems(_context([
             ("Open Kodi Favourites", "ActivateWindow(Favourites)"),
         ]))
@@ -161,8 +158,8 @@ def _kodi_favourites():
     _finish()
 
 
-def _refresh_kodi_favourites_widget(params):
-    """Refresh a focused Favourites widget once after its row was left."""
+def _refresh_widget_after_focus_return(params):
+    """Refresh any focused widget once after its row was left."""
     control = str(params.get("control") or "").strip()
     if not re.fullmatch(r"\d{1,6}", control):
         return
@@ -175,20 +172,27 @@ def _refresh_kodi_favourites_widget(params):
     # Clear the one-shot flag before changing focus. Container.Update rebuilds
     # the widget and can fire its focus handlers again while Kodi is updating.
     home.clearProperty(reset_key)
-    home.setProperty("KodiHome.FavouritesRefreshing", "true")
+    home.setProperty("KodiHome.WidgetRefreshing", "true")
+    # Keep the Apps spotlight focus hooks dormant while its source row is
+    # being rebuilt, so a normal widget refresh cannot steal focus.
+    home.setProperty("AppSpotlight.Refreshing", "true")
     try:
         xbmc.executebuiltin("SetFocus(%s,0,absolute)" % control, wait=True)
         if not xbmc.getCondVisibility("Control.HasFocus(%s)" % control):
-            raise RuntimeError("Kodi did not restore Favourites widget focus")
-        xbmc.executebuiltin(
-            "Container.Update(%s,replace)" % _url(action="kodi_favourites"),
-            wait=True,
-        )
+            raise RuntimeError("Kodi did not restore widget focus")
+        path = xbmc.getInfoLabel("Container(%s).FolderPath" % control).strip()
+        if path:
+            safe_path = path.replace('"', "")
+            xbmc.executebuiltin(
+                'Container.Update("%s",replace)' % safe_path,
+                wait=True,
+            )
         xbmc.executebuiltin("SetFocus(%s,0,absolute)" % control, wait=True)
     except Exception as exc:
-        xbmc.log("Kodi Home: Favourites widget refresh failed: %s" % exc, xbmc.LOGWARNING)
+        xbmc.log("Kodi Home: widget refresh failed: %s" % exc, xbmc.LOGWARNING)
     finally:
-        home.clearProperty("KodiHome.FavouritesRefreshing")
+        home.clearProperty("KodiHome.WidgetRefreshing")
+        home.clearProperty("AppSpotlight.Refreshing")
 
 
 def _run_kodi_favourite(params):
@@ -2186,8 +2190,8 @@ def main():
         _app_groups()
     elif action == "kodi_favourites":
         _kodi_favourites()
-    elif action == "refresh_kodi_favourites_widget":
-        _refresh_kodi_favourites_widget(params)
+    elif action == "refresh_widget_after_focus_return":
+        _refresh_widget_after_focus_return(params)
     elif action == "run_kodi_favourite":
         _run_kodi_favourite(params)
     elif action == "umbrella_widget_configure":

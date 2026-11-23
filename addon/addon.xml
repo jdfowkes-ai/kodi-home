@@ -15,11 +15,11 @@
         <menu id="kodi.core.main">
             <item library="context_item.py" args="manage_watchlist">
                 <label>Manage Watchlist</label>
-                <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)]</visible>
+                <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)] + !String.IsEqual(ListItem.Property(KodiHome.ContextOwned),true)</visible>
             </item>
             <item library="context_item.py" args="remove_library">
                 <label>Remove from Library</label>
-                <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)] + !Integer.IsEqual(ListItem.DBID,0)</visible>
+                <visible>[String.IsEqual(ListItem.dbtype,movie) | String.IsEqual(ListItem.dbtype,tvshow)] + !Integer.IsEqual(ListItem.DBID,0) + !String.IsEqual(ListItem.Property(KodiHome.ContextOwned),true)</visible>
             </item>
         </menu>
     </extension>

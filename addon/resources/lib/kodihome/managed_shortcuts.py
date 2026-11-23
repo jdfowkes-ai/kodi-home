@@ -42,22 +42,22 @@ class ManagedShortcuts:
         parsed = urlparse(umbrella_url)
         if parsed.scheme != "plugin" or parsed.netloc != "plugin.video.umbrella":
             raise ValueError("Only Umbrella plugin URLs can be saved")
-        if "\\n" in umbrella_url or "\\r" in umbrella_url:
+        if "\n" in umbrella_url or "\r" in umbrella_url:
             raise ValueError("Invalid shortcut URL")
         path = self._path(media_type, identifier)
         records = self._records()
         key = media_type + ":" + identifier
         if key in records:
-            if records[key] != str(path) or not path.is_file():
+            if records[key] != str(path) or not path.is_file() or path.is_symlink():
                 raise ValueError("Managed shortcut record does not match existing file")
             if path.read_text(encoding="utf-8").strip() != umbrella_url:
                 raise ValueError("Existing shortcut content differs")
             return str(path)
-        if path.exists():
+        if path.exists() or path.is_symlink():
             raise FileExistsError("Unmanaged shortcut already exists")
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as handle:
-            handle.write(umbrella_url + "\\n")
+            handle.write(umbrella_url + "\n")
         records[key] = str(path)
         self._save(records)
         return str(path)

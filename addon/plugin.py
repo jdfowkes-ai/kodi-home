@@ -638,7 +638,16 @@ def _art(value):
 
 
 def _context(commands):
-    return [(label, "RunPlugin(%s)" % target) for label, target in commands]
+    """Avoid duplicate actions in Kodi Home's own context menus."""
+    seen = set()
+    result = []
+    for label, target in commands:
+        # The target identifies the action even if two labels differ.
+        if not target or target in seen:
+            continue
+        seen.add(target)
+        result.append((label, "RunPlugin(%s)" % target))
+    return result
 
 
 def _folder(label, target, art=None):
@@ -664,6 +673,7 @@ def _video_item(label, target, info, art=None, context=None, folder=False, prope
     if not folder:
         item.setProperty("IsPlayable", "true")
     if context:
+        item.setProperty("KodiHome.ContextOwned", "true")
         item.addContextMenuItems(_context(context))
     xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=folder)
 

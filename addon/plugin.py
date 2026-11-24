@@ -1809,6 +1809,7 @@ def _browse_series():
             )
 
     progress = _umbrella_progress_metadata()
+    hidden = STORE.hidden_history_items("browse_series")
     shows = []
     seen_files = set()
     for metadata in progress.values():
@@ -1823,10 +1824,14 @@ def _browse_series():
         ]
         timestamp = max((last_played.get(key, 0) for key in keys if key[1]), default=0)
         episode_position = next((last_episode[key] for key in keys if key[1] and key in last_episode), (0, 0))
-        shows.append((timestamp, episode_position, metadata, target))
+        identities = [provider + ":" + value for provider, value in keys if value and value != "0"]
+        cutoff = max((hidden[key] for key in identities if key in hidden), default=-1)
+        if timestamp <= cutoff:
+            continue
+        shows.append((timestamp, episode_position, metadata, target, identities))
 
     shows.sort(key=lambda entry: entry[0], reverse=True)
-    for _, episode_position, metadata, target in shows:
+    for timestamp, episode_position, metadata, target, identities in shows:
         title = str(metadata.get("title") or "Unknown series")
         year = int(metadata.get("year") or 0)
         art = metadata.get("art") or {}
@@ -1842,8 +1847,24 @@ def _browse_series():
             "plot": (last_episode + ("\n\n" + plot if plot else "")),
             "genre": metadata.get("genre") or [],
         }
-        _video_item(title, target, info, art=art, folder=True)
+        context = [("Remove from Browse Series", _url(
+            action="hide_browse_series", identities=json.dumps(identities),
+            last_played=timestamp))] if identities else None
+        _video_item(title, target, info, art=art, folder=True, context=context)
     _finish("tvshows")
+
+
+def _hide_browse_series(params):
+    identities = json.loads(params.get("identities", "[]"))
+    if not isinstance(identities, list) or not identities or not all(
+        isinstance(key, str) and re.fullmatch(r"(imdb|tmdb):[A-Za-z0-9]+", key)
+        for key in identities
+    ):
+        _notify("Series identity unavailable")
+        return
+    STORE.hide_history_items("browse_series", identities, int(params.get("last_played", 0)))
+    _notify("Series hidden until watched again")
+    xbmc.executebuiltin("Container.Refresh")
 
 
 def _refresh_watchlist_metadata():
@@ -2255,6 +2276,8 @@ def main():
         _root()
     elif action == "browse_series":
         _browse_series()
+    elif action == "hide_browse_series":
+        _hide_browse_series(params)
     elif action == "apps":
         _app_groups()
     elif action == "kodi_favourites":

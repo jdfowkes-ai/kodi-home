@@ -81,6 +81,28 @@ class LocalStore:
         finally:
             connection.close()
 
+    def hide_history_items(self, widget, identities, last_played):
+        if widget not in ("browse_series", "continue_watching"):
+            raise ValueError("Unknown history widget")
+        with self._connection() as connection:
+            connection.execute("""CREATE TABLE IF NOT EXISTS hidden_history_items (
+                widget TEXT NOT NULL, identity TEXT NOT NULL,
+                last_played INTEGER NOT NULL, PRIMARY KEY(widget, identity))""")
+            connection.executemany(
+                """INSERT INTO hidden_history_items(widget, identity, last_played)
+                   VALUES (?, ?, ?) ON CONFLICT(widget, identity) DO UPDATE SET
+                   last_played = MAX(last_played, excluded.last_played)""",
+                [(widget, identity, int(last_played)) for identity in identities])
+
+    def hidden_history_items(self, widget):
+        with self._connection() as connection:
+            connection.execute("""CREATE TABLE IF NOT EXISTS hidden_history_items (
+                widget TEXT NOT NULL, identity TEXT NOT NULL,
+                last_played INTEGER NOT NULL, PRIMARY KEY(widget, identity))""")
+            return dict(connection.execute(
+                "SELECT identity, last_played FROM hidden_history_items WHERE widget = ?",
+                (widget,)).fetchall())
+
     def _initialize(self):
         with self._connection() as connection:
             schema_version = connection.execute("PRAGMA user_version").fetchone()[0]

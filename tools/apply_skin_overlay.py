@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.32"
+CUSTOM_ADDON_VERSION = "0.5.33"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -319,6 +319,8 @@ def apply_kodi_favourites_refresh_overlay(skin_root: Path) -> None:
     marker = '''            <control type="$PARAM[control]" id="$PARAM[id]">
                 <nested />'''
     replacement = marker + '''
+                <!-- Refresh only a dirty launcher group, without moving focus. -->
+                <onfocus condition="!String.IsEmpty(Container($PARAM[id]).ListItem.Property(KodiHome.LauncherGroup)) + String.IsEqual(Window(Home).Property(KodiHome.LauncherDirty.$INFO[Container($PARAM[id]).ListItem.Property(KodiHome.LauncherGroup)]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_launcher&amp;group_id=$INFO[Container($PARAM[id]).ListItem.Property(KodiHome.LauncherGroup)]&amp;control=$PARAM[id])</onfocus>
                 <!-- Kodi Favourites widgets refresh once and return to their
                      first item when focus comes back after leaving the row. -->
                 <onunfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEmpty(Window(Home).Property(KodiHome.FavouritesRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>

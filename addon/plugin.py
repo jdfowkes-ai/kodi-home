@@ -1108,15 +1108,64 @@ def _app_group_route(params):
         _app_group(int(params.get("group_id", 0)))
 
 
-HUB_SHORTCUTS = {
-    "movies": ("Movie Library", "ActivateWindow(Videos,videodb://movies/titles/,return)"),
-    "tv": ("TV Library", "ActivateWindow(Videos,videodb://tvshows/titles/,return)"),
-    "pvr": ("Live TV", "ActivateWindow(TVChannels)"),
-    "recordings": ("Recordings", "ActivateWindow(TVRecordings)"),
-    "music": ("Music", "ActivateWindow(Music)"),
-    "favourites": ("Favourites", "ActivateWindow(Favourites)"),
-    "games": ("Games", "ActivateWindow(Games)"),
-}
+def _configured_hubs():
+    """Read the active profile's Skin Variables hub configuration, without modifying it."""
+    skin = xbmc.getSkinDir()
+    filename = "skinvariables-shortcut-hubs.json"
+    paths = (
+        "special://profile/addon_data/script.skinvariables/nodes/%s/%s" % (skin, filename),
+        "special://skin/shortcuts/%s" % filename,
+        "special://skin/shortcuts/presets/library/%s" % filename,
+    )
+    for path in paths:
+        if not xbmcvfs.exists(path):
+            continue
+        try:
+            handle = xbmcvfs.File(path)
+            try:
+                rows = json.loads(handle.read())
+            finally:
+                handle.close()
+            if not isinstance(rows, list):
+                raise ValueError("Expected hub list")
+            hubs = {}
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                window = str(row.get("window", ""))
+                if not re.fullmatch(r"11[0-9]{2}", window):
+                    continue
+                if str(row.get("disabled", "")).lower() in ("true", "1", "yes"):
+                    continue
+                label = str(row.get("label") or "")
+                def localize(match):
+                    number = int(match.group(1))
+                    return (xbmc.getLocalizedString(number) if number < 31000
+                            else xbmcaddon.Addon(skin).getLocalizedString(number)) or match.group(0)
+                label = re.sub(r"\$LOCALIZE\[(\d+)\]", localize, label)
+                if not label or label.startswith("$"):
+                    continue
+                hubs[window] = (label, "ReplaceWindow(%s)" % window, str(row.get("icon") or ""))
+            return hubs
+        except Exception as exc:
+            xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)
+            return {}
+    return {}
+
+
+def _migrate_hub_shortcuts(group_id, hubs):
+    state = STORE.launcher_state(group_id)
+    # Match the configured hub icon, not its slot: users can rearrange hubs.
+    for legacy, icon in (("movies", "film.png"), ("tv", "tv.png"),
+                         ("pvr", "livetv.png"), ("music", "songs.png")):
+        old = "hub:" + legacy
+        if old not in state:
+            continue
+        matches = [key for key, hub in hubs.items()
+                   if hub[2].rsplit("/", 1)[-1].lower() == icon]
+        if len(matches) == 1:
+            STORE.migrate_launcher_shortcut(group_id, old, "hub:" + matches[0])
+    return STORE.launcher_state(group_id)
 
 
 def _hub_action(params):
@@ -1125,6 +1174,7 @@ def _hub_action(params):
         return
     action = params.get("action")
     key = params.get("hub", "")
+    HUB_SHORTCUTS = _configured_hubs()
     state = STORE.launcher_state(group_id)
     if action == "hub_add":
         choices = [k for k in HUB_SHORTCUTS if "hub:" + k not in state]
@@ -1136,9 +1186,13 @@ def _hub_action(params):
             return
         key = choices[index]
         STORE.launcher_state(group_id, "hub:" + key, label=HUB_SHORTCUTS[key][0])
-    elif key in HUB_SHORTCUTS and "hub:" + key in state:
+    elif "hub:" + key in state:
         if action == "hub_launch":
+            if key not in HUB_SHORTCUTS:
+                _notify("Hub is currently unavailable")
+                return
             STORE.launcher_state(group_id, "hub:" + key, opened=True)
+            xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
             xbmc.executebuiltin(HUB_SHORTCUTS[key][1])
             return
         if action == "hub_remove":
@@ -1148,16 +1202,21 @@ def _hub_action(params):
             if not label:
                 return
             STORE.launcher_state(group_id, "hub:" + key, label=label)
+    xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
     xbmc.executebuiltin("Container.Refresh")
 
 
-def _hub_tile(group_id, key, label):
+def _hub_tile(group_id, key, label, hubs):
     target = _url(action="hub_launch", group_id=group_id, hub=key)
     item = xbmcgui.ListItem(label=label, path=target)
     item.setInfo("video", {"title": label, "mediatype": "video"})
     item.setProperty("KodiHome.AppTile", "true")
-    logo = os.path.join(xbmcvfs.translatePath(ADDON.getAddonInfo("path")), "resources", "app-logos", "normalized", "hub-" + key + ".png")
-    if xbmcvfs.exists(logo) and label == HUB_SHORTCUTS[key][0]:
+    item.setProperty("KodiHome.LauncherGroup", str(group_id))
+    hub = hubs.get(key)
+    if not hub:
+        item.setLabel(label + " (unavailable)")
+    logo = hub[2] if hub else ""
+    if logo:
         item.setArt({"clearlogo": logo})
         item.setProperty("KodiHome.HasClearLogo", "true")
     else:
@@ -1182,17 +1241,18 @@ def _app_group(group_id):
     if visible_packages is not None:
         visible_set = set(visible_packages)
         apps = [app for app in apps if app["package_name"] in visible_set]
-    state = STORE.launcher_state(group_id)
+    HUB_SHORTCUTS = _configured_hubs()
+    state = _migrate_hub_shortcuts(group_id, HUB_SHORTCUTS)
     entries = [("app:" + app["package_name"], app) for app in apps]
     entries.extend((key, row) for key, row in state.items()
-                   if key.startswith("hub:") and key[4:] in HUB_SHORTCUTS)
+                   if key.startswith("hub:"))
     entries.sort(key=lambda entry: state.get(entry[0], {}).get("opened_at", 0), reverse=True)
     if not entries:
         _folder("Add hub", _url(action="hub_add", group_id=group_id))
         _folder("Add apps", _url(action="app_picker", group_id=group_id))
     for shortcut, app in entries:
         if shortcut.startswith("hub:"):
-            _hub_tile(group_id, shortcut[4:], app["label"])
+            _hub_tile(group_id, shortcut[4:], app["label"], HUB_SHORTCUTS)
             continue
         package_name = app["package_name"]
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):
@@ -1207,6 +1267,7 @@ def _app_group(group_id):
         app_art = _app_art(app)
         item.setArt(app_art)
         item.setProperty("KodiHome.AppTile", "true")
+        item.setProperty("KodiHome.LauncherGroup", str(group_id))
         item.setProperty(
             "KodiHome.HasClearLogo",
             "true" if app_art.get("clearlogo") else "false",
@@ -1465,8 +1526,19 @@ def _add_installed_app(params):
         params.get("icon", ""),
         group_id,
     )
+    xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
     _notify("Added to %s" % group["name"])
     _installed_app_picker(group_id)
+
+
+def _mark_app_groups_dirty(package_name, group_id=None):
+    home = xbmcgui.Window(10000)
+    for group in STORE.list_app_groups():
+        current = group["group_id"]
+        if group_id is not None and current != int(group_id):
+            continue
+        if any(app["package_name"] == package_name for app in STORE.list_apps(current)):
+            home.setProperty("KodiHome.LauncherDirty.%s" % current, "true")
 
 
 def _rename_app(params):
@@ -1477,6 +1549,7 @@ def _rename_app(params):
     current_title = params.get("title", package_name)
     title = xbmcgui.Dialog().input("Rename app", defaultt=current_title)
     if title:
+        _mark_app_groups_dirty(package_name)
         STORE.add_app(package_name, title)
         _notify("App name updated")
         xbmc.executebuiltin("Container.Refresh")
@@ -1488,6 +1561,7 @@ def _remove_app(params):
     if not ANDROID_PACKAGE_RE.fullmatch(package_name):
         _notify("Invalid Android package name")
         return
+    _mark_app_groups_dirty(package_name, group_id)
     removed = STORE.remove_app(
         package_name,
         int(group_id) if group_id else None,
@@ -2374,12 +2448,24 @@ def main():
     elif action in ("hub_add", "hub_rename", "hub_remove", "hub_launch"):
         _hub_action(params)
         _finish()
+    elif action == "refresh_launcher":
+        group_id = params.get("group_id", "")
+        control = params.get("control", "")
+        if group_id.isdigit() and control.isdigit():
+            home = xbmcgui.Window(10000)
+            flag = "KodiHome.LauncherDirty." + group_id
+            if (home.getProperty(flag) == "true"
+                    and xbmc.getCondVisibility("Control.HasFocus(%s)" % control)
+                    and xbmc.getInfoLabel("Container(%s).ListItem.Property(KodiHome.LauncherGroup)" % control) == group_id):
+                home.clearProperty(flag)
+                xbmc.executebuiltin("Container.Refresh")
     elif action == "launch_app":
         package_name = params.get("package", "")
         if ANDROID_PACKAGE_RE.fullmatch(package_name):
             group_id = int(params.get("group_id", 0))
             if group_id and STORE.get_app_group(group_id):
                 STORE.launcher_state(group_id, "app:" + package_name, opened=True)
+                xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
             xbmc.executebuiltin("StartAndroidActivity(%s)" % package_name)
         else:
             _notify("Invalid Android package name")

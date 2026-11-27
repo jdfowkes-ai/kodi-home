@@ -81,6 +81,21 @@ class LocalStore:
         finally:
             connection.close()
 
+    def migrate_launcher_shortcut(self, group_id, old_key, new_key):
+        """Move a legacy shortcut atomically, retaining its label and recency."""
+        with self._connection() as connection:
+            old = connection.execute(
+                "SELECT label, opened_at FROM launcher_state WHERE group_id=? AND shortcut=?",
+                (group_id, old_key)).fetchone()
+            if old is None:
+                return
+            connection.execute("""INSERT INTO launcher_state(group_id,shortcut,label,opened_at)
+                VALUES(?,?,?,?) ON CONFLICT(group_id,shortcut) DO UPDATE SET
+                opened_at=MAX(launcher_state.opened_at,excluded.opened_at)""",
+                (group_id, new_key, old["label"], old["opened_at"]))
+            connection.execute("DELETE FROM launcher_state WHERE group_id=? AND shortcut=?",
+                               (group_id, old_key))
+
     def launcher_state(self, group_id, key=None, label=None, remove=False, opened=False):
         """Group-local hub shortcuts and last-opened ordering."""
         with self._connection() as connection:

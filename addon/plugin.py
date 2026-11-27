@@ -825,6 +825,11 @@ ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
 
 
 APP_CLEARLOGO_FILES = {
+    "stremio": "stremio.svg",
+    "googleplaystore": "google-play-store.svg",
+    "playstore": "google-play-store.svg",
+    "geforcenow": "geforce-now.svg",
+    "nvidiageforcenow": "geforce-now.svg",
     "netflix": "netflix.png",
     "disneyplus": "disney-plus.png",
     "disney": "disney-plus.png",

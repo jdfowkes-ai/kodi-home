@@ -878,6 +878,11 @@ def _default_app_clearlogo(app):
     if not filename:
         return ""
 
+    addon_path = xbmcvfs.translatePath(ADDON.getAddonInfo("path"))
+    normalized = os.path.join(addon_path, "resources", "app-logos", "normalized", os.path.splitext(filename)[0] + ".png")
+    if key not in ("paramount", "paramountplus") and xbmcvfs.exists(normalized):
+        return normalized
+
     if key in ("paramount", "paramountplus"):
         profile = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
         path = os.path.join(profile, "app-brand-logos", "paramount-plus-mark.png")

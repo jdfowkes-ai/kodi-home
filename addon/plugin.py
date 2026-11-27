@@ -1186,6 +1186,7 @@ def _hub_action(params):
             if not label:
                 return
             STORE.launcher_state(group_id, "hub:" + key, label=label)
+    xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
     xbmc.executebuiltin("Container.Refresh")
 
 
@@ -1509,6 +1510,7 @@ def _add_installed_app(params):
         params.get("icon", ""),
         group_id,
     )
+    xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
     _notify("Added to %s" % group["name"])
     _installed_app_picker(group_id)
 

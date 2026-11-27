@@ -814,7 +814,29 @@ ANDROID_APPS_PREFIX = ANDROID_APPS_PATH
 ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
 
 
+APP_BRAND_PACKAGES = {
+    "com.netflix.ninja": "netflix",
+    "com.disney.disneyplus": "disneyplus",
+    "com.amazon.amazonvideo.livingroom": "primevideo",
+    "com.google.android.youtube.tv": "youtube",
+    "com.google.android.youtube.tvkids": "youtubekids",
+    "com.apple.atve.androidtv.appletv": "appletv",
+    "com.bbc.iplayer": "bbciplayer",
+    "air.ITVMobilePlayer": "itvx",
+    "com.itv.itvx": "itvx",
+    "com.channel4.android": "channel4",
+    "com.paramountplus": "paramountplus",
+    "com.stremio.one": "stremio",
+    "com.android.vending": "googleplaystore",
+    "com.nvidia.geforcenow": "geforcenow"
+}
+
 APP_CLEARLOGO_FILES = {
+    "stremio": "stremio.svg",
+    "googleplaystore": "google-play-store.svg",
+    "playstore": "google-play-store.svg",
+    "geforcenow": "geforce-now.svg",
+    "nvidiageforcenow": "geforce-now.svg",
     "netflix": "netflix.png",
     "disneyplus": "disney-plus.png",
     "disney": "disney-plus.png",
@@ -840,9 +862,15 @@ def _default_app_clearlogo(app):
     """Return white brand artwork, using the Paramount+ mountain-and-stars mark."""
     title = str(app.get("title") or "").casefold()
     key = re.sub(r"[^a-z0-9]+", "", title)
+    key = APP_BRAND_PACKAGES.get(app.get("package_name"), key)
     filename = APP_CLEARLOGO_FILES.get(key)
     if not filename:
         return ""
+
+    addon_path = xbmcvfs.translatePath(ADDON.getAddonInfo("path"))
+    normalized = os.path.join(addon_path, "resources", "app-logos", "normalized", os.path.splitext(filename)[0] + ".png")
+    if xbmcvfs.exists(normalized):
+        return normalized
 
     if key in ("paramount", "paramountplus"):
         profile = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
@@ -1356,6 +1384,9 @@ def _android_app_label(package_name):
         "com.itv.itvx": "ITVX",
         "com.channel4.android": "Channel 4",
         "com.paramountplus": "Paramount+",
+        "com.stremio.one": "Stremio",
+        "com.android.vending": "Google Play Store",
+        "com.nvidia.geforcenow": "GeForce NOW",
     }
     if package_name in known_apps:
         return known_apps[package_name]

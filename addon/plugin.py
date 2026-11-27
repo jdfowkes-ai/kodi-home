@@ -1176,6 +1176,7 @@ def _hub_action(params):
                 _notify("Hub is currently unavailable")
                 return
             STORE.launcher_state(group_id, "hub:" + key, opened=True)
+            xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
             xbmc.executebuiltin(HUB_SHORTCUTS[key][1])
             return
         if action == "hub_remove":
@@ -1193,6 +1194,7 @@ def _hub_tile(group_id, key, label):
     item = xbmcgui.ListItem(label=label, path=target)
     item.setInfo("video", {"title": label, "mediatype": "video"})
     item.setProperty("KodiHome.AppTile", "true")
+    item.setProperty("KodiHome.LauncherGroup", str(group_id))
     hub = _configured_hubs().get(key)
     if not hub:
         item.setLabel(label + " (unavailable)")
@@ -1248,6 +1250,7 @@ def _app_group(group_id):
         app_art = _app_art(app)
         item.setArt(app_art)
         item.setProperty("KodiHome.AppTile", "true")
+        item.setProperty("KodiHome.LauncherGroup", str(group_id))
         item.setProperty(
             "KodiHome.HasClearLogo",
             "true" if app_art.get("clearlogo") else "false",
@@ -2421,6 +2424,7 @@ def main():
             group_id = int(params.get("group_id", 0))
             if group_id and STORE.get_app_group(group_id):
                 STORE.launcher_state(group_id, "app:" + package_name, opened=True)
+                xbmcgui.Window(10000).setProperty("KodiHome.LauncherDirty.%s" % group_id, "true")
             xbmc.executebuiltin("StartAndroidActivity(%s)" % package_name)
         else:
             _notify("Invalid Android package name")

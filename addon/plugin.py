@@ -2418,6 +2418,17 @@ def main():
     elif action in ("hub_add", "hub_rename", "hub_remove", "hub_launch"):
         _hub_action(params)
         _finish()
+    elif action == "refresh_launcher":
+        group_id = params.get("group_id", "")
+        control = params.get("control", "")
+        if group_id.isdigit() and control.isdigit():
+            home = xbmcgui.Window(10000)
+            flag = "KodiHome.LauncherDirty." + group_id
+            if (home.getProperty(flag) == "true"
+                    and xbmc.getCondVisibility("Control.HasFocus(%s)" % control)
+                    and xbmc.getInfoLabel("Container(%s).ListItem.Property(KodiHome.LauncherGroup)" % control) == group_id):
+                home.clearProperty(flag)
+                xbmc.executebuiltin("Container.Refresh")
     elif action == "launch_app":
         package_name = params.get("package", "")
         if ANDROID_PACKAGE_RE.fullmatch(package_name):

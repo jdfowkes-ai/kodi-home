@@ -1108,15 +1108,18 @@ def _app_group_route(params):
         _app_group(int(params.get("group_id", 0)))
 
 
-HUB_SHORTCUTS = {
-    "movies": ("Movie Library", "ActivateWindow(Videos,videodb://movies/titles/,return)"),
-    "tv": ("TV Library", "ActivateWindow(Videos,videodb://tvshows/titles/,return)"),
-    "pvr": ("Live TV", "ActivateWindow(TVChannels)"),
-    "recordings": ("Recordings", "ActivateWindow(TVRecordings)"),
-    "music": ("Music", "ActivateWindow(Music)"),
-    "favourites": ("Favourites", "ActivateWindow(Favourites)"),
-    "games": ("Games", "ActivateWindow(Games)"),
-}
+def _configured_hubs():
+    hubs = {}
+    for window in (1101, 1102, 1103, 1104, 1106, 1107, 1108, 1109):
+        if not xbmc.getCondVisibility("Skin.HasSetting(HomeSwitcher.%s.Toggle)" % window) and not xbmc.getInfoLabel("Skin.String(HomeSwitcher.%s.Toggle)" % window):
+            # Current Arctic Fuse exposes generated hub variables to the skin.
+            if xbmc.getInfoLabel("$VAR[Label_Hub_Enabled_%s]" % window).lower() != "true":
+                continue
+        label = xbmc.getInfoLabel("$VAR[Hub_Label_%s]" % window) or xbmc.getInfoLabel("Skin.String(HomeSwitcher.%s.Name)" % window)
+        if not label or label.startswith("$"):
+            continue
+        hubs[str(window)] = (label, "ReplaceWindow(%s)" % window, xbmc.getInfoLabel("$VAR[Home_Icon_%s]" % window))
+    return hubs
 
 
 def _hub_action(params):
@@ -1125,6 +1128,7 @@ def _hub_action(params):
         return
     action = params.get("action")
     key = params.get("hub", "")
+    HUB_SHORTCUTS = _configured_hubs()
     state = STORE.launcher_state(group_id)
     if action == "hub_add":
         choices = [k for k in HUB_SHORTCUTS if "hub:" + k not in state]
@@ -1156,8 +1160,8 @@ def _hub_tile(group_id, key, label):
     item = xbmcgui.ListItem(label=label, path=target)
     item.setInfo("video", {"title": label, "mediatype": "video"})
     item.setProperty("KodiHome.AppTile", "true")
-    logo = os.path.join(xbmcvfs.translatePath(ADDON.getAddonInfo("path")), "resources", "app-logos", "normalized", "hub-" + key + ".png")
-    if xbmcvfs.exists(logo) and label == HUB_SHORTCUTS[key][0]:
+    logo = _configured_hubs().get(key, ("", "", ""))[2]
+    if logo:
         item.setArt({"clearlogo": logo})
         item.setProperty("KodiHome.HasClearLogo", "true")
     else:
@@ -1183,6 +1187,7 @@ def _app_group(group_id):
         visible_set = set(visible_packages)
         apps = [app for app in apps if app["package_name"] in visible_set]
     state = STORE.launcher_state(group_id)
+    HUB_SHORTCUTS = _configured_hubs()
     entries = [("app:" + app["package_name"], app) for app in apps]
     entries.extend((key, row) for key, row in state.items()
                    if key.startswith("hub:") and key[4:] in HUB_SHORTCUTS)

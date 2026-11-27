@@ -1515,6 +1515,16 @@ def _add_installed_app(params):
     _installed_app_picker(group_id)
 
 
+def _mark_app_groups_dirty(package_name, group_id=None):
+    home = xbmcgui.Window(10000)
+    for group in STORE.list_app_groups():
+        current = group["group_id"]
+        if group_id is not None and current != int(group_id):
+            continue
+        if any(app["package_name"] == package_name for app in STORE.list_apps(current)):
+            home.setProperty("KodiHome.LauncherDirty.%s" % current, "true")
+
+
 def _rename_app(params):
     package_name = params.get("package", "")
     if not ANDROID_PACKAGE_RE.fullmatch(package_name):
@@ -1523,6 +1533,7 @@ def _rename_app(params):
     current_title = params.get("title", package_name)
     title = xbmcgui.Dialog().input("Rename app", defaultt=current_title)
     if title:
+        _mark_app_groups_dirty(package_name)
         STORE.add_app(package_name, title)
         _notify("App name updated")
         xbmc.executebuiltin("Container.Refresh")
@@ -1534,6 +1545,7 @@ def _remove_app(params):
     if not ANDROID_PACKAGE_RE.fullmatch(package_name):
         _notify("Invalid Android package name")
         return
+    _mark_app_groups_dirty(package_name, group_id)
     removed = STORE.remove_app(
         package_name,
         int(group_id) if group_id else None,

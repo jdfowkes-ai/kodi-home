@@ -319,6 +319,8 @@ def apply_kodi_favourites_refresh_overlay(skin_root: Path) -> None:
     marker = '''            <control type="$PARAM[control]" id="$PARAM[id]">
                 <nested />'''
     replacement = marker + '''
+                <!-- Refresh only a dirty launcher group, without moving focus. -->
+                <onfocus condition="!String.IsEmpty(Container($PARAM[id]).ListItem.Property(KodiHome.LauncherGroup)) + String.IsEqual(Window(Home).Property(KodiHome.LauncherDirty.$INFO[Container($PARAM[id]).ListItem.Property(KodiHome.LauncherGroup)]),true)">RunPlugin(plugin://plugin.video.kodihome/?action=refresh_launcher&amp;group_id=$INFO[Container($PARAM[id]).ListItem.Property(KodiHome.LauncherGroup)]&amp;control=$PARAM[id])</onfocus>
                 <!-- Kodi Favourites widgets refresh once and return to their
                      first item when focus comes back after leaving the row. -->
                 <onunfocus condition="String.IsEqual(Container($PARAM[id]).ListItem.Property(KodiHome.ResetOnLeave),true) + String.IsEmpty(Window(Home).Property(KodiHome.FavouritesRefreshing))">SetProperty(KodiHome.WidgetReset.$PARAM[id],true,Home)</onunfocus>

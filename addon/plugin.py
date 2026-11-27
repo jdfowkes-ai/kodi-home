@@ -1152,6 +1152,21 @@ def _configured_hubs():
     return {}
 
 
+def _migrate_hub_shortcuts(group_id, hubs):
+    state = STORE.launcher_state(group_id)
+    # Match the configured hub icon, not its slot: users can rearrange hubs.
+    for legacy, icon in (("movies", "film.png"), ("tv", "tv.png"),
+                         ("pvr", "livetv.png"), ("music", "songs.png")):
+        old = "hub:" + legacy
+        if old not in state:
+            continue
+        matches = [key for key, hub in hubs.items()
+                   if hub[2].rsplit("/", 1)[-1].lower() == icon]
+        if len(matches) == 1:
+            STORE.migrate_launcher_shortcut(group_id, old, "hub:" + matches[0])
+    return STORE.launcher_state(group_id)
+
+
 def _hub_action(params):
     group_id = int(params.get("group_id", 0))
     if not STORE.get_app_group(group_id):
@@ -1225,8 +1240,8 @@ def _app_group(group_id):
     if visible_packages is not None:
         visible_set = set(visible_packages)
         apps = [app for app in apps if app["package_name"] in visible_set]
-    state = STORE.launcher_state(group_id)
     HUB_SHORTCUTS = _configured_hubs()
+    state = _migrate_hub_shortcuts(group_id, HUB_SHORTCUTS)
     entries = [("app:" + app["package_name"], app) for app in apps]
     entries.extend((key, row) for key, row in state.items()
                    if key.startswith("hub:"))

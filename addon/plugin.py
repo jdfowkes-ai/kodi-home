@@ -1167,7 +1167,12 @@ def _hub_tile(group_id, key, label):
     item = xbmcgui.ListItem(label=label, path=target)
     item.setInfo("video", {"title": label, "mediatype": "video"})
     item.setProperty("KodiHome.AppTile", "true")
-    item.setProperty("KodiHome.HasClearLogo", "false")
+    logo = os.path.join(xbmcvfs.translatePath(ADDON.getAddonInfo("path")), "resources", "app-logos", "normalized", "hub-" + key + ".png")
+    if xbmcvfs.exists(logo) and label == HUB_SHORTCUTS[key][0]:
+        item.setArt({"clearlogo": logo})
+        item.setProperty("KodiHome.HasClearLogo", "true")
+    else:
+        item.setProperty("KodiHome.HasClearLogo", "false")
     item.addContextMenuItems(_context([
         ("Add hub", _url(action="hub_add", group_id=group_id)),
         ("Rename shortcut", _url(action="hub_rename", group_id=group_id, hub=key)),

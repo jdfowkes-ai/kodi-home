@@ -26,9 +26,10 @@ for path in sorted(root.iterdir()):
         raise ValueError(f"Empty logo: {path}")
     print(f"{path.name}: {image.size}, visible bounds {bounds}")
     image = image.crop(bounds)
-    image.thumbnail((420, 210), Image.Resampling.LANCZOS)
+    max_w, max_h = {'apple-tv': (330, 165), 'itvx': (340, 165), 'netflix': (230, 260), 'stremio': (350, 165), 'google-play-store': (330, 180), 'geforce-now': (350, 170)}.get(path.stem, (360, 210))
+    image.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
     # Upscale small assets as well, within the same bounding box.
-    scale = min(420 / image.width, 210 / image.height)
+    scale = min(max_w / image.width, max_h / image.height)
     image = image.resize((round(image.width * scale), round(image.height * scale)), Image.Resampling.LANCZOS)
     canvas = Image.new("RGBA", (512, 512))
     canvas.alpha_composite(image, ((512-image.width)//2, (512-image.height)//2))

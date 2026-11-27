@@ -2,7 +2,7 @@
 <!-- Pre-widget-reset recovery release 0.5.66. -->
 <addon id="plugin.video.kodihome"
        name="Kodi Home"
-       version="0.5.66"
+       version="0.5.67"
        provider-name="jdfowkes-ai">
     <requires>
         <import addon="xbmc.python" version="3.0.0" />

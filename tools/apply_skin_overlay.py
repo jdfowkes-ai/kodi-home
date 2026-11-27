@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BASE_VERSION = "3.4.18"
 CUSTOM_ADDON_ID = "skin.arctic.fuse.3.kodihome"
 CUSTOM_ADDON_NAME = "Arctic Fuse 3 Kodi Home"
-CUSTOM_ADDON_VERSION = "0.5.31"
+CUSTOM_ADDON_VERSION = "0.5.32"
 OVERLAY_FILES = (
     Path("1080i/Includes_Info.xml"),
     Path("shortcuts/skinvariables-startup.json"),
@@ -143,7 +143,16 @@ def apply_app_widget_tile_overlay(skin_root: Path) -> None:
                             <centertop>50%</centertop>
                             <aspectratio>keep</aspectratio>
                             <texture>$INFO[$PARAM[listitem].Art(clearlogo)]</texture>
-                            <visible>!String.IsEmpty($PARAM[listitem].Art(clearlogo))</visible>
+                            <visible>!String.IsEmpty($PARAM[listitem].Art(clearlogo)) + !String.Contains($PARAM[listitem].Art(clearlogo),/app-logos/normalized/)</visible>
+                        </control>
+                        <control type="image">
+                            <width>100%</width>
+                            <height>100%</height>
+                            <centerleft>50%</centerleft>
+                            <centertop>50%</centertop>
+                            <aspectratio>keep</aspectratio>
+                            <texture>$INFO[$PARAM[listitem].Art(clearlogo)]</texture>
+                            <visible>String.Contains($PARAM[listitem].Art(clearlogo),/app-logos/normalized/)</visible>
                         </control>
                         <control type="label">
                             <width>85%</width>

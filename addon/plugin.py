@@ -814,7 +814,29 @@ ANDROID_APPS_PREFIX = ANDROID_APPS_PATH
 ANDROID_PACKAGE_RE = re.compile(r"^[A-Za-z0-9._]+$")
 
 
+APP_BRAND_PACKAGES = {
+    "com.netflix.ninja": "netflix",
+    "com.disney.disneyplus": "disneyplus",
+    "com.amazon.amazonvideo.livingroom": "primevideo",
+    "com.google.android.youtube.tv": "youtube",
+    "com.google.android.youtube.tvkids": "youtubekids",
+    "com.apple.atve.androidtv.appletv": "appletv",
+    "com.bbc.iplayer": "bbciplayer",
+    "air.ITVMobilePlayer": "itvx",
+    "com.itv.itvx": "itvx",
+    "com.channel4.android": "channel4",
+    "com.paramountplus": "paramountplus",
+    "com.stremio.one": "stremio",
+    "com.android.vending": "googleplaystore",
+    "com.nvidia.geforcenow": "geforcenow"
+}
+
 APP_CLEARLOGO_FILES = {
+    "stremio": "stremio.svg",
+    "googleplaystore": "google-play-store.svg",
+    "playstore": "google-play-store.svg",
+    "geforcenow": "geforce-now.svg",
+    "nvidiageforcenow": "geforce-now.svg",
     "netflix": "netflix.png",
     "disneyplus": "disney-plus.png",
     "disney": "disney-plus.png",
@@ -840,9 +862,15 @@ def _default_app_clearlogo(app):
     """Return white brand artwork, using the Paramount+ mountain-and-stars mark."""
     title = str(app.get("title") or "").casefold()
     key = re.sub(r"[^a-z0-9]+", "", title)
+    key = APP_BRAND_PACKAGES.get(app.get("package_name"), key)
     filename = APP_CLEARLOGO_FILES.get(key)
     if not filename:
         return ""
+
+    addon_path = xbmcvfs.translatePath(ADDON.getAddonInfo("path"))
+    normalized = os.path.join(addon_path, "resources", "app-logos", "normalized", os.path.splitext(filename)[0] + ".png")
+    if xbmcvfs.exists(normalized):
+        return normalized
 
     if key in ("paramount", "paramountplus"):
         profile = xbmcvfs.translatePath(ADDON.getAddonInfo("profile"))
@@ -1080,6 +1108,68 @@ def _app_group_route(params):
         _app_group(int(params.get("group_id", 0)))
 
 
+HUB_SHORTCUTS = {
+    "movies": ("Movie Library", "ActivateWindow(Videos,videodb://movies/titles/,return)"),
+    "tv": ("TV Library", "ActivateWindow(Videos,videodb://tvshows/titles/,return)"),
+    "pvr": ("Live TV", "ActivateWindow(TVChannels)"),
+    "recordings": ("Recordings", "ActivateWindow(TVRecordings)"),
+    "music": ("Music", "ActivateWindow(Music)"),
+    "favourites": ("Favourites", "ActivateWindow(Favourites)"),
+    "games": ("Games", "ActivateWindow(Games)"),
+}
+
+
+def _hub_action(params):
+    group_id = int(params.get("group_id", 0))
+    if not STORE.get_app_group(group_id):
+        return
+    action = params.get("action")
+    key = params.get("hub", "")
+    state = STORE.launcher_state(group_id)
+    if action == "hub_add":
+        choices = [k for k in HUB_SHORTCUTS if "hub:" + k not in state]
+        if not choices:
+            _notify("All available hubs already added")
+            return
+        index = xbmcgui.Dialog().select("Add hub", [HUB_SHORTCUTS[k][0] for k in choices])
+        if index < 0:
+            return
+        key = choices[index]
+        STORE.launcher_state(group_id, "hub:" + key, label=HUB_SHORTCUTS[key][0])
+    elif key in HUB_SHORTCUTS and "hub:" + key in state:
+        if action == "hub_launch":
+            STORE.launcher_state(group_id, "hub:" + key, opened=True)
+            xbmc.executebuiltin(HUB_SHORTCUTS[key][1])
+            return
+        if action == "hub_remove":
+            STORE.launcher_state(group_id, "hub:" + key, remove=True)
+        elif action == "hub_rename":
+            label = xbmcgui.Dialog().input("Rename shortcut", state["hub:" + key]["label"])
+            if not label:
+                return
+            STORE.launcher_state(group_id, "hub:" + key, label=label)
+    xbmc.executebuiltin("Container.Refresh")
+
+
+def _hub_tile(group_id, key, label):
+    target = _url(action="hub_launch", group_id=group_id, hub=key)
+    item = xbmcgui.ListItem(label=label, path=target)
+    item.setInfo("video", {"title": label, "mediatype": "video"})
+    item.setProperty("KodiHome.AppTile", "true")
+    logo = os.path.join(xbmcvfs.translatePath(ADDON.getAddonInfo("path")), "resources", "app-logos", "normalized", "hub-" + key + ".png")
+    if xbmcvfs.exists(logo) and label == HUB_SHORTCUTS[key][0]:
+        item.setArt({"clearlogo": logo})
+        item.setProperty("KodiHome.HasClearLogo", "true")
+    else:
+        item.setProperty("KodiHome.HasClearLogo", "false")
+    item.addContextMenuItems(_context([
+        ("Add hub", _url(action="hub_add", group_id=group_id)),
+        ("Rename shortcut", _url(action="hub_rename", group_id=group_id, hub=key)),
+        ("Remove shortcut", _url(action="hub_remove", group_id=group_id, hub=key)),
+    ]))
+    xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=False)
+
+
 def _app_group(group_id):
     group = STORE.get_app_group(group_id)
     if not group:
@@ -1088,29 +1178,26 @@ def _app_group(group_id):
         return
 
     apps = STORE.list_apps(group["group_id"])
-    if not apps:
-        _folder(
-            "Add apps to %s" % group["name"],
-            _url(action="app_picker", group_id=group["group_id"]),
-        )
-        _finish()
-        return
     visible_packages = STORE.get_app_group_display_filter(group["group_id"])
     if visible_packages is not None:
         visible_set = set(visible_packages)
         apps = [app for app in apps if app["package_name"] in visible_set]
-    if not apps:
-        _folder(
-            "Choose networks shown in %s" % group["name"],
-            _url(action="app_filter_group", group_id=group["group_id"]),
-        )
-        _finish()
-        return
-    for app in apps:
+    state = STORE.launcher_state(group_id)
+    entries = [("app:" + app["package_name"], app) for app in apps]
+    entries.extend((key, row) for key, row in state.items()
+                   if key.startswith("hub:") and key[4:] in HUB_SHORTCUTS)
+    entries.sort(key=lambda entry: state.get(entry[0], {}).get("opened_at", 0), reverse=True)
+    if not entries:
+        _folder("Add hub", _url(action="hub_add", group_id=group_id))
+        _folder("Add apps", _url(action="app_picker", group_id=group_id))
+    for shortcut, app in entries:
+        if shortcut.startswith("hub:"):
+            _hub_tile(group_id, shortcut[4:], app["label"])
+            continue
         package_name = app["package_name"]
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):
             continue
-        target = _url(action="launch_app", package=package_name)
+        target = _url(action="launch_app", package=package_name, group_id=group_id)
         label = app.get("title") or package_name
         if label == package_name:
             label = _android_app_label(package_name)
@@ -1158,6 +1245,7 @@ def _app_group(group_id):
             "plot": "",
         })
         item.addContextMenuItems(_context([
+            ("Add hub", _url(action="hub_add", group_id=group_id)),
             ("Rename app", _url(
                 action="app_rename",
                 package=package_name,
@@ -1296,6 +1384,9 @@ def _android_app_label(package_name):
         "com.itv.itvx": "ITVX",
         "com.channel4.android": "Channel 4",
         "com.paramountplus": "Paramount+",
+        "com.stremio.one": "Stremio",
+        "com.android.vending": "Google Play Store",
+        "com.nvidia.geforcenow": "GeForce NOW",
     }
     if package_name in known_apps:
         return known_apps[package_name]
@@ -2280,9 +2371,15 @@ def main():
         _add_to_watchlist(params.get("media_type", "movie"), int(params.get("db_id", 0)))
     elif action.startswith("remove_"):
         _remove(action, params)
+    elif action in ("hub_add", "hub_rename", "hub_remove", "hub_launch"):
+        _hub_action(params)
+        _finish()
     elif action == "launch_app":
         package_name = params.get("package", "")
         if ANDROID_PACKAGE_RE.fullmatch(package_name):
+            group_id = int(params.get("group_id", 0))
+            if group_id and STORE.get_app_group(group_id):
+                STORE.launcher_state(group_id, "app:" + package_name, opened=True)
             xbmc.executebuiltin("StartAndroidActivity(%s)" % package_name)
         else:
             _notify("Invalid Android package name")

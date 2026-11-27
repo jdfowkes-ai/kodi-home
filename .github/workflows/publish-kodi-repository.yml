@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - "addon/**"
+      - "scripts/normalize_app_logos.py"
       - "browse-series/**"
       - "skin/**"
       - "tools/apply_skin_overlay.py"
@@ -38,6 +39,11 @@ jobs:
 
       - name: Apply the Kodi Home skin overlay
         run: python3 tools/apply_skin_overlay.py upstream/skin.arctic.fuse.3
+
+      - name: Normalize launcher artwork
+        run: |
+          python3 -m pip install Pillow CairoSVG
+          python3 scripts/normalize_app_logos.py
 
       - name: Build Kodi repository site
         run: python3 tools/build_kodi_repository.py site upstream/skin.arctic.fuse.3

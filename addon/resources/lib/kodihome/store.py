@@ -81,6 +81,27 @@ class LocalStore:
         finally:
             connection.close()
 
+    def launcher_state(self, group_id, key=None, label=None, remove=False, opened=False):
+        """Group-local hub shortcuts and last-opened ordering."""
+        with self._connection() as connection:
+            connection.execute("""CREATE TABLE IF NOT EXISTS launcher_state (
+                group_id INTEGER NOT NULL, shortcut TEXT NOT NULL,
+                label TEXT NOT NULL DEFAULT '', opened_at INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(group_id, shortcut))""")
+            if key is not None:
+                if remove:
+                    connection.execute("DELETE FROM launcher_state WHERE group_id=? AND shortcut=?", (group_id, key))
+                elif opened:
+                    connection.execute("""INSERT INTO launcher_state(group_id,shortcut,opened_at)
+                        VALUES(?,?,?) ON CONFLICT(group_id,shortcut) DO UPDATE SET opened_at=excluded.opened_at""",
+                        (group_id,key,time.time_ns()))
+                elif label is not None:
+                    connection.execute("""INSERT INTO launcher_state(group_id,shortcut,label)
+                        VALUES(?,?,?) ON CONFLICT(group_id,shortcut) DO UPDATE SET label=excluded.label""",
+                        (group_id,key,label))
+            return {row["shortcut"]: dict(row) for row in connection.execute(
+                "SELECT * FROM launcher_state WHERE group_id=?", (group_id,))}
+
     def _initialize(self):
         with self._connection() as connection:
             schema_version = connection.execute("PRAGMA user_version").fetchone()[0]

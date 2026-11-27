@@ -1140,8 +1140,11 @@ def _hub_action(params):
             return
         key = choices[index]
         STORE.launcher_state(group_id, "hub:" + key, label=HUB_SHORTCUTS[key][0])
-    elif key in HUB_SHORTCUTS and "hub:" + key in state:
+    elif "hub:" + key in state:
         if action == "hub_launch":
+            if key not in HUB_SHORTCUTS:
+                _notify("Hub is currently unavailable")
+                return
             STORE.launcher_state(group_id, "hub:" + key, opened=True)
             xbmc.executebuiltin(HUB_SHORTCUTS[key][1])
             return
@@ -1160,7 +1163,10 @@ def _hub_tile(group_id, key, label):
     item = xbmcgui.ListItem(label=label, path=target)
     item.setInfo("video", {"title": label, "mediatype": "video"})
     item.setProperty("KodiHome.AppTile", "true")
-    logo = _configured_hubs().get(key, ("", "", ""))[2]
+    hub = _configured_hubs().get(key)
+    if not hub:
+        item.setLabel(label + " (unavailable)")
+    logo = hub[2] if hub else ""
     if logo:
         item.setArt({"clearlogo": logo})
         item.setProperty("KodiHome.HasClearLogo", "true")
@@ -1190,7 +1196,7 @@ def _app_group(group_id):
     HUB_SHORTCUTS = _configured_hubs()
     entries = [("app:" + app["package_name"], app) for app in apps]
     entries.extend((key, row) for key, row in state.items()
-                   if key.startswith("hub:") and key[4:] in HUB_SHORTCUTS)
+                   if key.startswith("hub:"))
     entries.sort(key=lambda entry: state.get(entry[0], {}).get("opened_at", 0), reverse=True)
     if not entries:
         _folder("Add hub", _url(action="hub_add", group_id=group_id))

@@ -1149,7 +1149,7 @@ def _configured_hubs():
             return hubs
         except Exception as exc:
             xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)
-            return {}
+            continue
     return {}
 
 
@@ -1177,6 +1177,9 @@ def _hub_action(params):
     HUB_SHORTCUTS = _configured_hubs()
     state = STORE.launcher_state(group_id)
     if action == "hub_add":
+        if not HUB_SHORTCUTS:
+            _notify("No configured hubs found; check skin hub settings")
+            return
         choices = [k for k in HUB_SHORTCUTS if "hub:" + k not in state]
         if not choices:
             _notify("All available hubs already added")

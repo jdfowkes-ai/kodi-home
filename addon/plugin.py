@@ -1320,8 +1320,7 @@ def _app_group(group_id):
             )),
         ]))
         xbmcplugin.addDirectoryItem(HANDLE, target, item, isFolder=False)
-    xbmcplugin.setContent(HANDLE, "videos")
-    xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)
+    _finish()
 
 
 def _create_app_group():

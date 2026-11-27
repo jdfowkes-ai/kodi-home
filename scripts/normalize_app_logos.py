@@ -33,3 +33,12 @@ for path in sorted(root.iterdir()):
     canvas = Image.new("RGBA", (512, 512))
     canvas.alpha_composite(image, ((512-image.width)//2, (512-image.height)//2))
     canvas.save(out / (path.stem + ".png"))
+
+# Hub tiles use the same canvas and white monochrome artwork.
+from PIL import ImageDraw, ImageFont
+font = ImageFont.truetype("DejaVuSans-Bold.ttf", 44)
+for key, lines in {"movies": ["Movie", "Library"], "tv": ["TV", "Library"], "pvr": ["Live TV"], "recordings": ["Recordings"], "music": ["Music"], "favourites": ["Favourites"], "games": ["Games"]}.items():
+    canvas = Image.new("RGBA", (512, 512))
+    draw = ImageDraw.Draw(canvas)
+    draw.multiline_text((256, 256), "\n".join(lines), font=font, fill="white", anchor="mm", align="center", spacing=8)
+    canvas.save(out / ("hub-" + key + ".png"))

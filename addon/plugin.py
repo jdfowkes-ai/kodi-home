@@ -1150,7 +1150,14 @@ def _configured_hubs():
         except Exception as exc:
             xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)
             continue
+    # Default native library hubs remain selectable if Skin Variables is unavailable.
+    if "arctic.fuse.3" in skin.lower():
+        return {
+            "1101": ("Movie Library", "ReplaceWindow(1101)", "special://skin/extras/icons/film.png"),
+            "1102": ("TV Library", "ReplaceWindow(1102)", "special://skin/extras/icons/tv.png"),
+        }
     return {}
+
 
 
 def _migrate_hub_shortcuts(group_id, hubs):

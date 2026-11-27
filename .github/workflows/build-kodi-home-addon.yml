@@ -19,6 +19,33 @@ jobs:
 
       - name: Validate Python syntax
         run: python3 -m compileall -q addon scripts tools
+      - name: Test launcher migration and ordering
+        run: |
+          python3 - <<'PY'
+          import sys, types, tempfile
+          from pathlib import Path
+          sys.modules["xbmcaddon"] = types.ModuleType("xbmcaddon")
+          sys.modules["xbmcvfs"] = types.ModuleType("xbmcvfs")
+          sys.path.insert(0, "addon/resources/lib")
+          from kodihome.store import LocalStore
+          with tempfile.TemporaryDirectory() as tmp:
+              store = LocalStore.__new__(LocalStore)
+              store.path = Path(tmp) / "test.sqlite3"
+              store.launcher_state(1, "hub:movies", label="My films")
+              store.launcher_state(1, "hub:movies", opened=True)
+              before = store.launcher_state(1)["hub:movies"]
+              store.migrate_launcher_shortcut(1, "hub:movies", "hub:1101")
+              state = store.launcher_state(1)
+              assert "hub:movies" not in state
+              assert state["hub:1101"]["label"] == "My films"
+              assert state["hub:1101"]["opened_at"] == before["opened_at"]
+              store.migrate_launcher_shortcut(1, "hub:movies", "hub:1101")
+              assert store.launcher_state(1) == state
+              store.launcher_state(2, "hub:movies", label="Other group")
+              store.launcher_state(1, "app:example", opened=True)
+              assert store.launcher_state(1)["app:example"]["opened_at"] >= before["opened_at"]
+              assert store.launcher_state(2)["hub:movies"]["label"] == "Other group"
+          PY
       - name: Normalize launcher artwork
         run: |
           python3 -m pip install Pillow CairoSVG

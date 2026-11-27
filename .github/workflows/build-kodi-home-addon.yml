@@ -17,6 +17,8 @@ jobs:
       - name: Check out Kodi Home
         uses: actions/checkout@v4
 
+      - name: Validate Python syntax
+        run: python3 -m compileall -q addon scripts tools
       - name: Normalize launcher artwork
         run: |
           python3 -m pip install Pillow CairoSVG

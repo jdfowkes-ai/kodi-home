@@ -1109,17 +1109,47 @@ def _app_group_route(params):
 
 
 def _configured_hubs():
-    hubs = {}
-    for window in (1101, 1102, 1103, 1104, 1106, 1107, 1108, 1109):
-        if not xbmc.getCondVisibility("Skin.HasSetting(HomeSwitcher.%s.Toggle)" % window) and not xbmc.getInfoLabel("Skin.String(HomeSwitcher.%s.Toggle)" % window):
-            # Current Arctic Fuse exposes generated hub variables to the skin.
-            if xbmc.getInfoLabel("$VAR[Label_Hub_Enabled_%s]" % window).lower() != "true":
-                continue
-        label = xbmc.getInfoLabel("$VAR[Hub_Label_%s]" % window) or xbmc.getInfoLabel("Skin.String(HomeSwitcher.%s.Name)" % window)
-        if not label or label.startswith("$"):
+    """Read the active profile's Skin Variables hub configuration, without modifying it."""
+    skin = xbmc.getSkinDir()
+    filename = "skinvariables-shortcut-hubs.json"
+    paths = (
+        "special://profile/addon_data/script.skinvariables/nodes/%s/%s" % (skin, filename),
+        "special://skin/shortcuts/%s" % filename,
+    )
+    for path in paths:
+        if not xbmcvfs.exists(path):
             continue
-        hubs[str(window)] = (label, "ReplaceWindow(%s)" % window, xbmc.getInfoLabel("$VAR[Home_Icon_%s]" % window))
-    return hubs
+        try:
+            handle = xbmcvfs.File(path)
+            try:
+                rows = json.loads(handle.read())
+            finally:
+                handle.close()
+            if not isinstance(rows, list):
+                raise ValueError("Expected hub list")
+            hubs = {}
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                window = str(row.get("window", ""))
+                if not re.fullmatch(r"11[0-9]{2}", window):
+                    continue
+                if str(row.get("disabled", "")).lower() in ("true", "1", "yes"):
+                    continue
+                label = str(row.get("label") or "")
+                def localize(match):
+                    number = int(match.group(1))
+                    return (xbmc.getLocalizedString(number) if number < 31000
+                            else xbmcaddon.Addon(skin).getLocalizedString(number)) or match.group(0)
+                label = re.sub(r"\$LOCALIZE\[(\d+)\]", localize, label)
+                if not label or label.startswith("$"):
+                    continue
+                hubs[window] = (label, "ReplaceWindow(%s)" % window, str(row.get("icon") or ""))
+            return hubs
+        except Exception as exc:
+            xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)
+            return {}
+    return {}
 
 
 def _hub_action(params):

@@ -1115,6 +1115,7 @@ def _configured_hubs():
     paths = (
         "special://profile/addon_data/script.skinvariables/nodes/%s/%s" % (skin, filename),
         "special://skin/shortcuts/%s" % filename,
+        "special://skin/shortcuts/presets/library/%s" % filename,
     )
     for path in paths:
         if not xbmcvfs.exists(path):
@@ -1205,13 +1206,13 @@ def _hub_action(params):
     xbmc.executebuiltin("Container.Refresh")
 
 
-def _hub_tile(group_id, key, label):
+def _hub_tile(group_id, key, label, hubs):
     target = _url(action="hub_launch", group_id=group_id, hub=key)
     item = xbmcgui.ListItem(label=label, path=target)
     item.setInfo("video", {"title": label, "mediatype": "video"})
     item.setProperty("KodiHome.AppTile", "true")
     item.setProperty("KodiHome.LauncherGroup", str(group_id))
-    hub = _configured_hubs().get(key)
+    hub = hubs.get(key)
     if not hub:
         item.setLabel(label + " (unavailable)")
     logo = hub[2] if hub else ""
@@ -1251,7 +1252,7 @@ def _app_group(group_id):
         _folder("Add apps", _url(action="app_picker", group_id=group_id))
     for shortcut, app in entries:
         if shortcut.startswith("hub:"):
-            _hub_tile(group_id, shortcut[4:], app["label"])
+            _hub_tile(group_id, shortcut[4:], app["label"], HUB_SHORTCUTS)
             continue
         package_name = app["package_name"]
         if not ANDROID_PACKAGE_RE.fullmatch(package_name):

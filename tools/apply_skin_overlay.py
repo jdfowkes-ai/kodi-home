@@ -143,7 +143,16 @@ def apply_app_widget_tile_overlay(skin_root: Path) -> None:
                             <centertop>50%</centertop>
                             <aspectratio>keep</aspectratio>
                             <texture>$INFO[$PARAM[listitem].Art(clearlogo)]</texture>
-                            <visible>!String.IsEmpty($PARAM[listitem].Art(clearlogo))</visible>
+                            <visible>!String.IsEmpty($PARAM[listitem].Art(clearlogo)) + !String.Contains($PARAM[listitem].Art(clearlogo),/app-logos/normalized/)</visible>
+                        </control>
+                        <control type="image">
+                            <width>100%</width>
+                            <height>100%</height>
+                            <centerleft>50%</centerleft>
+                            <centertop>50%</centertop>
+                            <aspectratio>keep</aspectratio>
+                            <texture>$INFO[$PARAM[listitem].Art(clearlogo)]</texture>
+                            <visible>String.Contains($PARAM[listitem].Art(clearlogo),/app-logos/normalized/)</visible>
                         </control>
                         <control type="label">
                             <width>85%</width>

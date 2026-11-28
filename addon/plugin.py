@@ -1142,15 +1142,25 @@ def _configured_hubs():
                     number = int(match.group(1))
                     return (xbmc.getLocalizedString(number) if number < 31000
                             else xbmcaddon.Addon(skin).getLocalizedString(number)) or match.group(0)
-                label = re.sub(r"\$LOCALIZE\[(\d+)\]", localize, label)
+                try:
+                    label = re.sub(r"\$LOCALIZE\[(\d+)\]", localize, label)
+                except Exception:
+                    label = ""
                 if not label or label.startswith("$"):
-                    continue
+                    label = {"1101": "Movie Library", "1102": "TV Library"}.get(window, "Hub " + window)
                 hubs[window] = (label, "ReplaceWindow(%s)" % window, str(row.get("icon") or ""))
             return hubs
         except Exception as exc:
             xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)
-            return {}
+            continue
+    # Default native library hubs remain selectable if Skin Variables is unavailable.
+    if "arctic.fuse.3" in skin.lower():
+        return {
+            "1101": ("Movie Library", "ReplaceWindow(1101)", "special://skin/extras/icons/film.png"),
+            "1102": ("TV Library", "ReplaceWindow(1102)", "special://skin/extras/icons/tv.png"),
+        }
     return {}
+
 
 
 def _migrate_hub_shortcuts(group_id, hubs):
@@ -1175,8 +1185,11 @@ def _hub_action(params):
     action = params.get("action")
     key = params.get("hub", "")
     HUB_SHORTCUTS = _configured_hubs()
-    state = STORE.launcher_state(group_id)
+    state = _migrate_hub_shortcuts(group_id, HUB_SHORTCUTS)
     if action == "hub_add":
+        if not HUB_SHORTCUTS:
+            _notify("No configured hubs found; check skin hub settings")
+            return
         choices = [k for k in HUB_SHORTCUTS if "hub:" + k not in state]
         if not choices:
             _notify("All available hubs already added")

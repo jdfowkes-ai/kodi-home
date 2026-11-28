@@ -21,12 +21,45 @@ for path in sorted(root.iterdir()):
         image = Image.open(io.BytesIO(cairosvg.svg2png(url=str(path)))).convert("RGBA")
     else:
         image = Image.open(path).convert("RGBA")
+    # Extract the original brand marks from the existing transparent wordmarks.
+    if path.stem in ("apple-tv", "itvx"):
+        alpha = image.getchannel("A")
+        bbox = alpha.getbbox()
+        if bbox:
+            image = image.crop(bbox)
+            # Find the transparent vertical gap between the symbol and lettering.
+            alpha = image.getchannel("A")
+            occupied = [alpha.crop((x, 0, x+1, image.height)).getbbox() is not None
+                        for x in range(image.width)]
+            gaps = []
+            start = None
+            for x, used in enumerate(occupied + [True]):
+                if not used and start is None:
+                    start = x
+                elif used and start is not None:
+                    if start > image.width * .12 and x < image.width * .95:
+                        gaps.append((start, x))
+                    start = None
+            if path.stem == "apple-tv":
+                candidates = [(a,b) for a,b in gaps if .25 < a/image.width < .65]
+                if candidates:
+                    cut = max(candidates, key=lambda g: g[1]-g[0])[0]
+                    image = image.crop((0, 0, cut, image.height))
+            else:
+                candidates = [(a,b) for a,b in gaps if .50 < b/image.width < .85]
+                if candidates:
+                    cut = max(candidates, key=lambda g: g[1]-g[0])[1]
+                    image = image.crop((cut, 0, image.width, image.height))
     bounds = image.getchannel("A").getbbox()
     if not bounds:
         raise ValueError(f"Empty logo: {path}")
     print(f"{path.name}: {image.size}, visible bounds {bounds}")
     image = image.crop(bounds)
-    max_w, max_h = {'apple-tv': (330, 165), 'itvx': (340, 165), 'netflix': (230, 260), 'stremio': (350, 165), 'google-play-store': (330, 180), 'geforce-now': (350, 170)}.get(path.stem, (360, 210))
+    # Keep launcher marks monochrome while retaining their original alpha edges.
+    alpha = image.getchannel("A")
+    image = Image.new("RGBA", image.size, "white")
+    image.putalpha(alpha)
+    max_w, max_h = {'apple-tv': (230, 230), 'itvx': (230, 230), 'netflix': (230, 260), 'stremio': (230, 230), 'google-play-store': (230, 230), 'geforce-now': (350, 170)}.get(path.stem, (360, 210))
     image.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
     # Upscale small assets as well, within the same bounding box.
     scale = min(max_w / image.width, max_h / image.height)

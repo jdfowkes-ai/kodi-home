@@ -7,7 +7,7 @@ import ast
 import base64
 
 root = Path("addon/resources/app-logos")
-out = root / "normalized"
+out = root / "normalized-v3"
 out.mkdir(exist_ok=True)
 for path in sorted(root.iterdir()):
     if path.suffix.lower() not in (".png", ".svg"):

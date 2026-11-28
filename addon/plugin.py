@@ -868,7 +868,7 @@ def _default_app_clearlogo(app):
         return ""
 
     addon_path = xbmcvfs.translatePath(ADDON.getAddonInfo("path"))
-    normalized = os.path.join(addon_path, "resources", "app-logos", "normalized", os.path.splitext(filename)[0] + ".png")
+    normalized = os.path.join(addon_path, "resources", "app-logos", "normalized-v3", os.path.splitext(filename)[0] + ".png")
     if xbmcvfs.exists(normalized):
         return normalized
 
@@ -1120,9 +1120,11 @@ def _configured_hubs():
         "special://skin/shortcuts/%s" % filename,
         "special://skin/shortcuts/presets/library/%s" % filename,
     )
+    xbmc.log("Kodi Home hub discovery: active skin=%s" % skin, xbmc.LOGWARNING)
     discovered = {}
     disabled = set()
     for path in paths:
+        xbmc.log("Kodi Home hub discovery: %s exists=%s" % (path, xbmcvfs.exists(path)), xbmc.LOGWARNING)
         if not xbmcvfs.exists(path):
             continue
         try:
@@ -1158,6 +1160,7 @@ def _configured_hubs():
                 if not label or label.startswith("$"):
                     label = {"1101": "Movie Library", "1102": "TV Library", "1107": "Live TV"}.get(window, "Hub " + window)
                 hubs[window] = (label, "ReplaceWindow(%s)" % window, str(row.get("icon") or ""))
+            xbmc.log("Kodi Home hub discovery: enabled=%s disabled=%s" % (sorted(hubs), sorted(disabled)), xbmc.LOGWARNING)
             discovered.update(hubs)
         except Exception as exc:
             xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)

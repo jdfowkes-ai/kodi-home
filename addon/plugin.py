@@ -895,6 +895,9 @@ def _app_clearlogo(app):
     custom_path = str(app.get("clearlogo_path") or "").strip()
     title_key = re.sub(r"[^a-z0-9]+", "", str(app.get("title") or "").casefold())
     if custom_path:
+        bundled = custom_path.replace("\\", "/").lower()
+        if "/resources/app-logos/" in bundled or bundled.startswith("special://home/addons/plugin.video.kodihome/resources/app-logos/"):
+            return _default_app_clearlogo(app)
         is_paramount = title_key in ("paramount", "paramountplus")
         if custom_path.startswith(("http://", "https://", "image://")):
             return custom_path
@@ -1117,6 +1120,8 @@ def _configured_hubs():
         "special://skin/shortcuts/%s" % filename,
         "special://skin/shortcuts/presets/library/%s" % filename,
     )
+    discovered = {}
+    disabled = set()
     for path in paths:
         if not xbmcvfs.exists(path):
             continue
@@ -1136,6 +1141,10 @@ def _configured_hubs():
                 if not re.fullmatch(r"11[0-9]{2}", window):
                     continue
                 if str(row.get("disabled", "")).lower() in ("true", "1", "yes"):
+                    if window not in discovered:
+                        disabled.add(window)
+                    continue
+                if window in disabled or window in discovered:
                     continue
                 label = str(row.get("label") or "")
                 def localize(match):
@@ -1147,12 +1156,14 @@ def _configured_hubs():
                 except Exception:
                     label = ""
                 if not label or label.startswith("$"):
-                    label = {"1101": "Movie Library", "1102": "TV Library"}.get(window, "Hub " + window)
+                    label = {"1101": "Movie Library", "1102": "TV Library", "1107": "Live TV"}.get(window, "Hub " + window)
                 hubs[window] = (label, "ReplaceWindow(%s)" % window, str(row.get("icon") or ""))
-            return hubs
+            discovered.update(hubs)
         except Exception as exc:
             xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)
             continue
+    if discovered or disabled:
+        return discovered
     # Default native library hubs remain selectable if Skin Variables is unavailable.
     if "arctic.fuse.3" in skin.lower():
         return {

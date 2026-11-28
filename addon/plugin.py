@@ -1185,7 +1185,7 @@ def _hub_action(params):
     action = params.get("action")
     key = params.get("hub", "")
     HUB_SHORTCUTS = _configured_hubs()
-    state = STORE.launcher_state(group_id)
+    state = _migrate_hub_shortcuts(group_id, HUB_SHORTCUTS)
     if action == "hub_add":
         if not HUB_SHORTCUTS:
             _notify("No configured hubs found; check skin hub settings")

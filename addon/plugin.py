@@ -1142,9 +1142,12 @@ def _configured_hubs():
                     number = int(match.group(1))
                     return (xbmc.getLocalizedString(number) if number < 31000
                             else xbmcaddon.Addon(skin).getLocalizedString(number)) or match.group(0)
-                label = re.sub(r"\$LOCALIZE\[(\d+)\]", localize, label)
+                try:
+                    label = re.sub(r"\$LOCALIZE\[(\d+)\]", localize, label)
+                except Exception:
+                    label = ""
                 if not label or label.startswith("$"):
-                    continue
+                    label = {"1101": "Movie Library", "1102": "TV Library"}.get(window, "Hub " + window)
                 hubs[window] = (label, "ReplaceWindow(%s)" % window, str(row.get("icon") or ""))
             return hubs
         except Exception as exc:

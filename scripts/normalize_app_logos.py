@@ -7,7 +7,7 @@ import ast
 import base64
 
 root = Path("addon/resources/app-logos")
-out = root / "normalized-v3"
+out = root / "normalized-v4"
 out.mkdir(exist_ok=True)
 for path in sorted(root.iterdir()):
     if path.suffix.lower() not in (".png", ".svg"):
@@ -49,7 +49,9 @@ for path in sorted(root.iterdir()):
                 candidates = [(a,b) for a,b in gaps if .50 < b/image.width < .85]
                 if candidates:
                     cut = max(candidates, key=lambda g: g[1]-g[0])[1]
-                    image = image.crop((cut, 0, image.width, image.height))
+                else:
+                    cut = round(image.width * .60)
+                image = image.crop((cut, 0, image.width, image.height))
     bounds = image.getchannel("A").getbbox()
     if not bounds:
         raise ValueError(f"Empty logo: {path}")
@@ -59,7 +61,7 @@ for path in sorted(root.iterdir()):
     alpha = image.getchannel("A")
     image = Image.new("RGBA", image.size, "white")
     image.putalpha(alpha)
-    max_w, max_h = {'apple-tv': (230, 230), 'itvx': (230, 230), 'netflix': (230, 260), 'stremio': (230, 230), 'google-play-store': (230, 230), 'geforce-now': (350, 170)}.get(path.stem, (360, 210))
+    max_w, max_h = (440, 420)
     image.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
     # Upscale small assets as well, within the same bounding box.
     scale = min(max_w / image.width, max_h / image.height)

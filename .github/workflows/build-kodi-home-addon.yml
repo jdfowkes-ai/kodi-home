@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "addon/**"
+      - 'scripts/normalize_app_logos.py'
       - ".github/workflows/build-kodi-home-addon.yml"
 
 permissions:

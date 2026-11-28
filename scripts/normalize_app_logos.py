@@ -55,6 +55,10 @@ for path in sorted(root.iterdir()):
         raise ValueError(f"Empty logo: {path}")
     print(f"{path.name}: {image.size}, visible bounds {bounds}")
     image = image.crop(bounds)
+    # Keep launcher marks monochrome while retaining their original alpha edges.
+    alpha = image.getchannel("A")
+    image = Image.new("RGBA", image.size, "white")
+    image.putalpha(alpha)
     max_w, max_h = {'apple-tv': (230, 230), 'itvx': (230, 230), 'netflix': (230, 260), 'stremio': (230, 230), 'google-play-store': (230, 230), 'geforce-now': (350, 170)}.get(path.stem, (360, 210))
     image.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
     # Upscale small assets as well, within the same bounding box.

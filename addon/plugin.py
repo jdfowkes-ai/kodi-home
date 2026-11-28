@@ -1236,6 +1236,19 @@ def _hub_action(params):
     xbmc.executebuiltin("Container.Refresh")
 
 
+def _hub_logo(key, label, hub):
+    name = (label + " " + (hub[0] if hub else "")).casefold()
+    category = "custom"
+    for words, kind in ((("kids", "children", "family"), "kids"), (("network", "service"), "networks"), (("documentary", "documentaries"), "documentaries"), (("live tv", "pvr"), "pvr"), (("movie", "film", "cinema"), "movies"), (("tv", "series", "television"), "tv"), (("music", "listen"), "music"), (("game",), "games"), (("favourite", "favorite"), "favourites")):
+        if any(word in name for word in words):
+            category = kind
+            break
+    if category == "custom":
+        category = {"1101": "movies", "1102": "tv", "1107": "pvr"}.get(key, "custom")
+    path = os.path.join(xbmcvfs.translatePath(ADDON.getAddonInfo("path")), "resources", "app-logos", "normalized-v4", "hub-rounded-" + category + ".png")
+    return path if xbmcvfs.exists(path) else (hub[2] if hub else "")
+
+
 def _hub_tile(group_id, key, label, hubs):
     target = _url(action="hub_launch", group_id=group_id, hub=key)
     item = xbmcgui.ListItem(label=label, path=target)
@@ -1245,7 +1258,7 @@ def _hub_tile(group_id, key, label, hubs):
     hub = hubs.get(key)
     if not hub:
         item.setLabel(label + " (unavailable)")
-    logo = hub[2] if hub else ""
+    logo = _hub_logo(key, label, hub)
     if logo:
         item.setArt({"clearlogo": logo})
         item.setProperty("KodiHome.HasClearLogo", "true")

@@ -868,7 +868,7 @@ def _default_app_clearlogo(app):
         return ""
 
     addon_path = xbmcvfs.translatePath(ADDON.getAddonInfo("path"))
-    normalized = os.path.join(addon_path, "resources", "app-logos", "normalized-v3", os.path.splitext(filename)[0] + ".png")
+    normalized = os.path.join(addon_path, "resources", "app-logos", "normalized-v4", os.path.splitext(filename)[0] + ".png")
     if xbmcvfs.exists(normalized):
         return normalized
 
@@ -1165,6 +1165,9 @@ def _configured_hubs():
         except Exception as exc:
             xbmc.log("Kodi Home: could not read hub configuration: %s" % exc, xbmc.LOGWARNING)
             continue
+    if "arctic.fuse.3" in skin.lower():
+        for window, label, icon in (("1101", "Movie Library", "film.png"), ("1102", "TV Library", "tv.png"), ("1107", "Live TV", "livetv.png")):
+            discovered.setdefault(window, (label, "ReplaceWindow(%s)" % window, "special://skin/extras/icons/" + icon))
     if discovered or disabled:
         return discovered
     # Default native library hubs remain selectable if Skin Variables is unavailable.
